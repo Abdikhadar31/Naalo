@@ -381,13 +381,13 @@ try {
     <?php endif; ?>
 </div>
                                     </td>
-                                    <td><strong><?php echo htmlspecialchars($manager['first_name'] . ' ' . $manager['last_name']); ?></strong></td>
+                                    <td class="text-nowrap"><strong><?php echo htmlspecialchars($manager['first_name'] . ' ' . $manager['last_name']); ?></strong></td>
                                     <td><?php echo ucfirst($manager['gender']); ?></td>
                                     <td><?php echo htmlspecialchars($manager['username']); ?></td>
                                     <td><?php echo htmlspecialchars($manager['email']); ?></td>
                                     <td><?php echo htmlspecialchars($manager['phone']); ?></td>
                                     <td><?php echo htmlspecialchars($manager['dept_name'] ?? 'Not Assigned'); ?></td>
-                                    <td><?php echo date('Y-m-d', strtotime($manager['hire_date'])); ?></td>
+                                    <td class="text-nowrap"><?php echo date('Y-m-d', strtotime($manager['hire_date'])); ?></td>
                                     <td><?php echo number_format($manager['basic_salary'], 2); ?></td>
                                     <td>
                                         <span class="badge bg-<?php echo $manager['status'] === 'active' ? 'success' : 'danger'; ?>">

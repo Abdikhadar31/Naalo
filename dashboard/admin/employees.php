@@ -385,7 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <td><?php echo ucfirst($emp['role']); ?></td>
                                 <td><?php echo htmlspecialchars($emp['email']); ?></td>
                                 <td><?php echo htmlspecialchars($emp['phone']); ?></td>
-                                <td><?php echo date('Y-m-d', strtotime($emp['hire_date'])); ?></td>
+                                <td class="text-nowrap"><?php echo date('Y-m-d', strtotime($emp['hire_date'])); ?></td>
                                 <td>
                                     <div class="d-flex gap-2 justify-content-center align-items-center">
                                         <button class="btn btn-sm btn-info" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="viewEmployee(<?php echo htmlspecialchars(json_encode($emp)); ?>)">
