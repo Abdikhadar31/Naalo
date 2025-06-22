@@ -395,12 +395,14 @@ try {
                                         </span>
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary me-1" onclick='editManager(<?php echo json_encode($manager); ?>)'>
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteManager(<?php echo $manager['user_id']; ?>)">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        <div class="d-flex gap-2 justify-content-center align-items-center">
+                                            <button class="btn btn-sm btn-outline-primary" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick='editManager(<?php echo json_encode($manager); ?>)'>
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="deleteManager(<?php echo $manager['user_id']; ?>)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
