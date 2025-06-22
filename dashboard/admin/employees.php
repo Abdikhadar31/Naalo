@@ -387,15 +387,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <td><?php echo htmlspecialchars($emp['phone']); ?></td>
                                 <td><?php echo date('Y-m-d', strtotime($emp['hire_date'])); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-info" onclick="viewEmployee(<?php echo htmlspecialchars(json_encode($emp)); ?>)">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-primary" onclick="editEmployee(<?php echo htmlspecialchars(json_encode($emp)); ?>)">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteEmployee(<?php echo $emp['user_id']; ?>)">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <div class="d-flex gap-2 justify-content-center align-items-center">
+                                        <button class="btn btn-sm btn-info" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="viewEmployee(<?php echo htmlspecialchars(json_encode($emp)); ?>)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="editEmployee(<?php echo htmlspecialchars(json_encode($emp)); ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="deleteEmployee(<?php echo $emp['user_id']; ?>)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
