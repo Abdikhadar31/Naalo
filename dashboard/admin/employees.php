@@ -87,16 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $pdo->beginTransaction();
 
-                    // Deactivate user account
-                    $stmt = $pdo->prepare("UPDATE users SET status = 'inactive' WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
-
                     // Remove as department head if set
                     $stmt = $pdo->prepare("UPDATE departments SET dept_head = NULL WHERE dept_head = ?");
                     $stmt->execute([$_POST['user_id']]);
 
                     // Set employee's dept_id to NULL
                     $stmt = $pdo->prepare("UPDATE employees SET dept_id = NULL WHERE user_id = ?");
+                    $stmt->execute([$_POST['user_id']]);
+
+                    // Delete employee record first
+                    $stmt = $pdo->prepare("DELETE FROM employees WHERE user_id = ?");
+                    $stmt->execute([$_POST['user_id']]);
+
+                    // Then delete user record
+                    $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
                     $stmt->execute([$_POST['user_id']]);
 
                     $pdo->commit();

@@ -346,9 +346,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="container-fluid">
                 <div class="d-flex justify-content-between align-items-center">
                     <h1 class="mb-0"><i class=""></i>My Payroll</h1>
-                    <button class="btn btn-primary" onclick="window.print()">
+                    <!-- <button class="btn btn-primary" onclick="window.print()">
                         <i class="fas fa-print"></i> Print Payslip
-                    </button>
+                    </button> -->
                 </div>
             </div>
         </div>

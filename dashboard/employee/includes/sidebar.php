@@ -32,7 +32,7 @@ while ($row = $stmt_settings->fetch()) {
     
     <div class="sidebar-menu">
         <ul class="menu-items" style="list-style:none;padding:0;margin:0;">
-            <li><a href="index.php" class="sidebar-link home"><span class="sidebar-icon home"><i class="fas fa-home"></i></span>Dashboard</a></li>
+            <li><a href="dashboard.php" class="sidebar-link home"><span class="sidebar-icon home"><i class="fas fa-home"></i></span>Dashboard</a></li>
             <li><a href="attendance.php" class="sidebar-link attendance"><span class="sidebar-icon attendance"><i class="fas fa-calendar-check"></i></span>Attendance</a></li>
             <li><a href="leave.php" class="sidebar-link leave"><span class="sidebar-icon leave"><i class="fas fa-calendar-alt"></i></span>Leave</a></li>
             <li><a href="projects.php" class="sidebar-link projects"><span class="sidebar-icon projects"><i class="fas fa-tasks"></i></span>Projects</a></li>

@@ -80,8 +80,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ) VALUES (?, 'project_assignment', ?, ?, NOW())
                     ");
                     
-                    $message = "You have been assigned as manager for project: " . $_POST['project_name'];
-                    $notify_stmt->execute([$_POST['manager_id'], $message, $project_id]);
+                    // Get user_id for the manager from emp_id
+                    $user_stmt = $pdo->prepare("SELECT user_id FROM employees WHERE emp_id = ?");
+                    $user_stmt->execute([$_POST['manager_id']]);
+                    $manager_user = $user_stmt->fetch();
+                    
+                    if ($manager_user) {
+                        $message = "You have been assigned as manager for project: " . $_POST['project_name'];
+                        $notify_stmt->execute([$manager_user['user_id'], $message, $project_id]);
+                    }
                     
                     $success = "Project added successfully.";
                 } catch (Exception $e) {
@@ -149,8 +156,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ) VALUES (?, 'project_assignment', ?, ?, NOW())
                         ");
                         
-                        $message = "You have been assigned as manager for project: " . $_POST['project_name'];
-                        $notify_stmt->execute([$_POST['manager_id'], $message, $_POST['project_id']]);
+                        // Get user_id for the manager from emp_id
+                        $user_stmt = $pdo->prepare("SELECT user_id FROM employees WHERE emp_id = ?");
+                        $user_stmt->execute([$_POST['manager_id']]);
+                        $manager_user = $user_stmt->fetch();
+                        
+                        if ($manager_user) {
+                            $message = "You have been assigned as manager for project: " . $_POST['project_name'];
+                            $notify_stmt->execute([$manager_user['user_id'], $message, $_POST['project_id']]);
+                        }
                     }
                     
                     // Update assigned employees
@@ -2147,7 +2161,7 @@ try {
                                         <div class="manager-selection-container">
                                             <div class="manager-cards-grid">
                                                 <?php foreach ($managers as $manager): ?>
-                                                    <div class="manager-card" data-value="<?php echo $manager['user_id']; ?>">
+                                                    <div class="manager-card" data-value="<?php echo $manager['emp_id']; ?>">
                                                         <div class="manager-avatar">
                                                             <?php
                                                             $initials = implode('', array_map(function($name) {
@@ -2271,11 +2285,18 @@ try {
                                                 <p id="view_end_date"></p>
                                             </div>
                                         </div>
-                                        <div class="info-item">
-                                            <i class="fas fa-building text-primary"></i>
+                                        <div class="info-item mb-3">
+                                            <i class="fas fa-user-tie"></i>
                                             <div>
-                                                <label>Department</label>
-                                                <p id="view_department"></p>
+                                                <label>Project Manager</label>
+                                                <p id="view_manager_name"></p>
+                                            </div>
+                                        </div>
+                                        <div class="info-item mb-3">
+                                            <i class="fas fa-building"></i>
+                                            <div>
+                                                <label>Manager Department</label>
+                                                <p id="view_manager_dept"></p>
                                             </div>
                                         </div>
                                     </div>
@@ -2348,7 +2369,7 @@ try {
                                         <div class="manager-selection-container">
                                             <div class="manager-cards-grid">
                                                 <?php foreach ($managers as $manager): ?>
-                                                    <div class="manager-card" data-value="<?php echo $manager['user_id']; ?>">
+                                                    <div class="manager-card" data-value="<?php echo $manager['emp_id']; ?>">
                                                         <div class="manager-avatar">
                                                             <?php
                                                             $initials = implode('', array_map(function($name) {
@@ -2510,9 +2531,15 @@ try {
                         return $(this).data('value');
                     }).get();
                     
-                    const prefix = modalId === '#editProjectModal' ? 'edit_' : '';
-                    $(`${modalId} #${prefix}selected_team_members`).val(selectedIds.join(','));
+                    // Update the count display
                     $(`${modalId} .selected-count .badge`).text(selectedIds.length + ' members selected');
+                    
+                    // Update the hidden input for the specific modal
+                    if (modalId === '#editProjectModal') {
+                        $('#edit_selected_team_members').val(selectedIds.join(','));
+                    } else {
+                        $('#selected_team_members').val(selectedIds.join(','));
+                    }
                 }
 
                 // Initialize handlers for both modals
@@ -2535,12 +2562,30 @@ try {
                     $('#editProjectModal .manager-card').removeClass('selected');
                     $('#editProjectModal .team-card').removeClass('selected');
                     
-                    // Set selected manager
-                    const managerCard = $(`#editProjectModal .manager-card[data-value="${project.manager_id}"]`);
-                    if (managerCard.length) {
-                        managerCard.addClass('selected');
-                        $('#edit_selected_manager_id').val(project.manager_id);
-                    }
+                    // Set selected manager - need to find the emp_id for this manager
+                    // We'll need to get the emp_id from the manager's user_id
+                    $.ajax({
+                        url: 'ajax/get_manager_emp_id.php',
+                        method: 'POST',
+                        data: { user_id: project.manager_id },
+                        success: function(response) {
+                            try {
+                                const data = JSON.parse(response);
+                                if (data.emp_id) {
+                                    const managerCard = $(`#editProjectModal .manager-card[data-value="${data.emp_id}"]`);
+                                    if (managerCard.length) {
+                                        managerCard.addClass('selected');
+                                        $('#edit_selected_manager_id').val(data.emp_id);
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error parsing manager data:', e);
+                            }
+                        },
+                        error: function() {
+                            console.error('Error fetching manager emp_id');
+                        }
+                    });
                     
                     // Set selected team members
                     if (project.team_members) {
@@ -2593,12 +2638,24 @@ try {
                         return false;
                     }
                     
-                    const teamMembers = $('#edit_selected_team_members').val();
-                    if (!teamMembers) {
+                    // Get selected team members
+                    const selectedCards = $(`${modalId} .team-card.selected`);
+                    if (selectedCards.length === 0) {
                         e.preventDefault();
                         alert('Please select at least one team member');
                         return false;
                     }
+                    
+                    // Remove any existing assigned_employees inputs
+                    $(this).find('input[name="assigned_employees[]"]').remove();
+                    
+                    // Create hidden inputs for each selected team member
+                    selectedCards.each(function() {
+                        const empId = $(this).data('value');
+                        $(this).closest('form').append(
+                            `<input type="hidden" name="assigned_employees[]" value="${empId}">`
+                        );
+                    });
                 });
 
                 // Delete project function
@@ -2623,10 +2680,19 @@ try {
                     // Set basic project information
                     $('#view_project_name').text(project.project_name);
                     $('#view_project_description').text(project.description || 'No description available');
-                    $('#view_manager_name').text(project.manager_name || 'Not Assigned');
+                    let managerName = project.manager_name;
+                    let managerDept = project.department_name;
+                    if ((!managerName || managerName === 'Not Assigned') && project.manager_id) {
+                        const found = managersList.find(m => m.emp_id == project.manager_id);
+                        if (found) {
+                            managerName = found.manager_name;
+                            managerDept = found.dept_name || 'No Department';
+                        }
+                    }
+                    $('#view_manager_name').text(managerName || 'Not Assigned');
+                    $('#view_manager_dept').text(managerDept || 'N/A');
                     $('#view_start_date').text(new Date(project.start_date).toLocaleDateString());
                     $('#view_end_date').text(new Date(project.end_date).toLocaleDateString());
-                    $('#view_department').text(project.department_name || 'N/A');
                     
                     // Set status badge with proper styling
                     const statusBadge = $('#view_project_status');
@@ -2735,6 +2801,11 @@ try {
                     this.submit();
                 });
             });
+            </script>
+
+            <!-- Pass managers list to JS -->
+            <script>
+                var managersList = <?php echo json_encode($managers); ?>;
             </script>
         </div>
     </div>

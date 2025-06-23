@@ -15,6 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 try {
+                    // Prevent duplicate department names (case-insensitive)
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departments WHERE LOWER(dept_name) = LOWER(?)");
+                    $stmt->execute([$_POST['dept_name']]);
+                    $dept_count = $stmt->fetchColumn();
+                    if ($dept_count > 0) {
+                        $error = "A department with this name already exists!";
+                        break;
+                    }
                     $stmt = $pdo->prepare("INSERT INTO departments (dept_name, dept_head) VALUES (?, ?)");
                     $stmt->execute([$_POST['dept_name'], $_POST['dept_head']]);
                     $success = "Department added successfully!";
@@ -25,6 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'edit':
                 try {
+                    // Prevent duplicate department names (case-insensitive, excluding current department)
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departments WHERE LOWER(dept_name) = LOWER(?) AND dept_id != ?");
+                    $stmt->execute([$_POST['dept_name'], $_POST['dept_id']]);
+                    $dept_count = $stmt->fetchColumn();
+                    if ($dept_count > 0) {
+                        $error = "A department with this name already exists!";
+                        break;
+                    }
                     $stmt = $pdo->prepare("UPDATE departments SET dept_name = ?, dept_head = ? WHERE dept_id = ?");
                     $stmt->execute([$_POST['dept_name'], $_POST['dept_head'], $_POST['dept_id']]);
                     $success = "Department updated successfully!";
@@ -35,13 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 try {
-                    // First check if department has employees
+                    // Check if department has employees
                     $stmt = $pdo->prepare("SELECT COUNT(*) FROM employees WHERE dept_id = ?");
                     $stmt->execute([$_POST['dept_id']]);
-                    $count = $stmt->fetchColumn();
+                    $employee_count = $stmt->fetchColumn();
 
-                    if ($count > 0) {
+                    // Check if department has a department head assigned
+                    $stmt = $pdo->prepare("SELECT dept_head FROM departments WHERE dept_id = ?");
+                    $stmt->execute([$_POST['dept_id']]);
+                    $dept_head = $stmt->fetchColumn();
+
+                    if ($employee_count > 0) {
                         $error = "Cannot delete department with assigned employees!";
+                    } elseif (!empty($dept_head)) {
+                        $error = "Cannot delete department with a department head assigned!";
                     } else {
                         $stmt = $pdo->prepare("DELETE FROM departments WHERE dept_id = ?");
                         $stmt->execute([$_POST['dept_id']]);
@@ -513,7 +536,7 @@ try {
                             <label class="form-label">Department Head</label>
                             <select class="form-select" name="dept_head">
                                 <option value="">Select Department Head</option>
-                                <?php foreach ($managers as $manager): ?>
+                                <?php foreach ($unassigned_managers as $manager): ?>
                                     <option value="<?php echo $manager['user_id']; ?>">
                                         <?php echo htmlspecialchars($manager['full_name']); ?>
                                     </option>
@@ -550,7 +573,30 @@ try {
                             <label class="form-label">Department Head</label>
                             <select class="form-select" name="dept_head" id="edit_dept_head">
                                 <option value="">Select Department Head</option>
-                                <?php foreach ($managers as $manager): ?>
+                                <?php
+                                // Get current head for this department
+                                $current_head_id = isset($_POST['dept_head']) ? $_POST['dept_head'] : null;
+                                // Add current head if not in unassigned_managers
+                                $edit_heads = $unassigned_managers;
+                                if (isset($dept) && !empty($dept['dept_head'])) {
+                                    $already_listed = false;
+                                    foreach ($unassigned_managers as $m) {
+                                        if ($m['user_id'] == $dept['dept_head']) {
+                                            $already_listed = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!$already_listed) {
+                                        // Fetch current head's name
+                                        $stmt = $pdo->prepare("SELECT u.user_id, CONCAT(e.first_name, ' ', e.last_name) as full_name FROM users u JOIN employees e ON u.user_id = e.user_id WHERE u.user_id = ?");
+                                        $stmt->execute([$dept['dept_head']]);
+                                        $current_head = $stmt->fetch();
+                                        if ($current_head) {
+                                            $edit_heads[] = $current_head;
+                                        }
+                                    }
+                                }
+                                foreach ($edit_heads as $manager): ?>
                                     <option value="<?php echo $manager['user_id']; ?>">
                                         <?php echo htmlspecialchars($manager['full_name']); ?>
                                     </option>

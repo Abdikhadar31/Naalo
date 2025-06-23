@@ -94,6 +94,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 try {
+                    // Remove as department head if set
+                    $stmt = $pdo->prepare("UPDATE departments SET dept_head = NULL WHERE dept_head = ?");
+                    $stmt->execute([$_POST['user_id']]);
+                    // Get emp_id for this user
+                    $stmt = $pdo->prepare("SELECT emp_id FROM employees WHERE user_id=?");
+                    $stmt->execute([$_POST['user_id']]);
+                    $emp = $stmt->fetch();
+                    if ($emp) {
+                        $emp_id = $emp['emp_id'];
+                        // Delete related payroll records
+                        $stmt = $pdo->prepare("DELETE FROM payroll WHERE employee_id = ?");
+                        $stmt->execute([$emp_id]);
+                        // Delete employee record
+                        $stmt = $pdo->prepare("DELETE FROM employees WHERE user_id=?");
+                        $stmt->execute([$_POST['user_id']]);
+                    }
+                    // Delete user record
                     $stmt = $pdo->prepare("DELETE FROM users WHERE user_id=?");
                     $stmt->execute([$_POST['user_id']]);
                     $success = "User deleted successfully!";

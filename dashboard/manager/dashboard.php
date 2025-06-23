@@ -472,9 +472,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p class="text-muted mb-0">Welcome back, <?php echo htmlspecialchars($manager['first_name'] . ' ' . $manager['last_name']); ?></p>
                 </div>
                 <div class="btn-group">
-                    <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                    <!-- <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
                         <i class="fas fa-print"></i> Print Report
-                    </button>
+                    </button> -->
                     <!-- <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                         <i class="fas fa-calendar"></i> This week
                     </button>

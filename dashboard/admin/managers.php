@@ -81,27 +81,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'delete':
                 try {
-                    // Check if manager is assigned to any department
-                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departments WHERE dept_head = ?");
+                    $pdo->beginTransaction();
+
+                    // First remove manager as department head if assigned
+                    $stmt = $pdo->prepare("UPDATE departments SET dept_head = NULL WHERE dept_head = ?");
                     $stmt->execute([$_POST['user_id']]);
-                    $count = $stmt->fetchColumn();
 
-                    if ($count > 0) {
-                        $error = "Cannot delete manager who is assigned as department head!";
-                    } else {
-                        $pdo->beginTransaction();
+                    // Delete from employees table
+                    $stmt = $pdo->prepare("DELETE FROM employees WHERE user_id = ?");
+                    $stmt->execute([$_POST['user_id']]);
 
-                        // Soft delete employee record
-                        $stmt = $pdo->prepare("UPDATE employees SET status = 'deleted' WHERE user_id = ?");
-                        $stmt->execute([$_POST['user_id']]);
+                    // Delete from users table
+                    $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
+                    $stmt->execute([$_POST['user_id']]);
 
-                        // Soft delete user account
-                        $stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE user_id = ?");
-                        $stmt->execute([$_POST['user_id']]);
-
-                        $pdo->commit();
-                        $success = "Manager deleted successfully!";
-                    }
+                    $pdo->commit();
+                    $success = "Manager deleted successfully!";
                 } catch (PDOException $e) {
                     if (isset($pdo)) $pdo->rollBack();
                     $error = "Error deleting manager: " . $e->getMessage();
