@@ -8,35 +8,60 @@ if (isset($_POST['export_reports'])) {
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment;filename=dashboard_reports_' . date('Ymd_His') . '.csv');
     $output = fopen('php://output', 'w');
+    
     // Department Stats
     fputcsv($output, ['Department', 'Employee Count']);
     $stmt = $pdo->query("SELECT d.dept_name, COUNT(e.emp_id) as employee_count FROM departments d LEFT JOIN employees e ON d.dept_id = e.dept_id GROUP BY d.dept_id, d.dept_name ORDER BY employee_count DESC");
     foreach ($stmt->fetchAll() as $row) {
         fputcsv($output, [$row['dept_name'], $row['employee_count']]);
     }
-    fputcsv($output, []);
-    // Project Stats
-    fputcsv($output, ['Project Status', 'Count']);
-    $statuses = ['planning', 'ongoing', 'completed', 'on-hold'];
-    foreach ($statuses as $status) {
-        $count = $pdo->query("SELECT COUNT(*) FROM projects WHERE status = '" . $status . "'")->fetchColumn();
-        fputcsv($output, [$status, $count]);
+    
+    // Add Employee Hire Report if filtered
+    if (isset($_POST['filter_submitted']) && $_POST['filter_submitted'] == '1') {
+        fputcsv($output, []); // Spacer
+        fputcsv($output, ['Hired Employees Report']);
+        $hire_start = !empty($_POST['hire_start']) ? $_POST['hire_start'] : '1900-01-01';
+        $hire_end = !empty($_POST['hire_end']) ? $_POST['hire_end'] : date('Y-m-d');
+        $role = !empty($_POST['role']) ? $_POST['role'] : '';
+
+        $query = "
+            SELECT e.*, u.username, u.email, u.status as user_status, u.role, d.dept_name 
+            FROM employees e 
+            LEFT JOIN users u ON e.user_id = u.user_id 
+            LEFT JOIN departments d ON e.dept_id = d.dept_id 
+            WHERE e.hire_date BETWEEN ? AND ?
+        ";
+        $params = [$hire_start, $hire_end];
+        if ($role) {
+            $query .= " AND u.role = ?";
+            $params[] = $role;
+        }
+        $query .= " ORDER BY e.hire_date ASC";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $filtered_employees = $stmt->fetchAll();
+
+        fputcsv($output, ['Name', 'Gender', 'Role', 'Department', 'Position', 'Email', 'Phone', 'Hire Date', 'Status']);
+        foreach ($filtered_employees as $emp) {
+            $status = 'Deleted';
+            if (!empty($emp['user_status']) && $emp['user_status'] === 'active') {
+                $status = 'Active';
+            }
+            fputcsv($output, [
+                $emp['first_name'] . ' ' . $emp['last_name'],
+                ucfirst($emp['gender']),
+                ucfirst($emp['role'] ?? 'N/A'),
+                $emp['dept_name'] ?? 'Not Assigned',
+                $emp['position'],
+                $emp['email'] ?? 'N/A',
+                $emp['phone'],
+                $emp['hire_date'],
+                $status
+            ]);
+        }
     }
-    fputcsv($output, []);
-    // Attendance Stats
-    fputcsv($output, ['Attendance Status', 'Count (Current Month)']);
-    $statuses = ['present', 'late', 'absent', 'half-day'];
-    foreach ($statuses as $status) {
-        $count = $pdo->query("SELECT COUNT(*) FROM attendance WHERE status = '" . $status . "' AND MONTH(attendance_date) = MONTH(CURRENT_DATE) AND YEAR(attendance_date) = YEAR(CURRENT_DATE)")->fetchColumn();
-        fputcsv($output, [$status, $count]);
-    }
-    fputcsv($output, []);
-    // Leave Stats
-    fputcsv($output, ['Leave Type', 'Approved Count']);
-    $stmt = $pdo->query("SELECT lt.leave_type_name, COUNT(lr.leave_id) as count FROM leave_types lt LEFT JOIN leave_requests lr ON lt.leave_type_id = lr.leave_type_id AND lr.status = 'approved' GROUP BY lt.leave_type_id, lt.leave_type_name ORDER BY count DESC");
-    foreach ($stmt->fetchAll() as $row) {
-        fputcsv($output, [$row['leave_type_name'], $row['count']]);
-    }
+
     fclose($output);
     exit();
 }
@@ -50,57 +75,190 @@ if (isset($_POST['export_reports_pdf'])) {
         exit();
     }
     require_once __DIR__ . '/includes/fpdf.php';
-    $pdf = new FPDF();
-    $pdf->AddPage();
-    $pdf->SetFont('Arial', 'B', 16);
-    $pdf->Cell(0, 10, 'Dashboard Reports', 0, 1, 'C');
-    $pdf->Ln(5);
-    // Department Stats
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Department Stats', 0, 1);
-    $pdf->SetFont('Arial', '', 11);
-    $stmt = $pdo->query("SELECT d.dept_name, COUNT(e.emp_id) as employee_count FROM departments d LEFT JOIN employees e ON d.dept_id = e.dept_id GROUP BY d.dept_id, d.dept_name ORDER BY employee_count DESC");
-    foreach ($stmt->fetchAll() as $row) {
-        $pdf->Cell(60, 7, $row['dept_name'], 1);
-        $pdf->Cell(40, 7, $row['employee_count'], 1);
-        $pdf->Ln();
+
+    class PDF_Report extends FPDF
+    {
+        // Page header
+        function Header()
+        {
+            // Logo
+            if (file_exists('../../assets/images/LOGO.jpg')) {
+                $this->Image('../../assets/images/LOGO.jpg', 10, 8, 20);
+            }
+            // Arial bold 15
+            $this->SetFont('Arial', 'B', 20);
+            $this->SetTextColor(90, 92, 105);
+            // Move to the right
+            $this->Cell(80);
+            // Title
+            $this->Cell(30, 10, 'Company Report', 0, 0, 'C');
+            // Report Date
+            $this->SetFont('Arial', '', 10);
+            $this->SetTextColor(133, 135, 150);
+            $this->Cell(0, 10, 'Generated on: ' . date('Y-m-d'), 0, false, 'R');
+            // Line break
+            $this->Ln(25);
+        }
+
+        // Page footer
+        // function Footer()
+        // {
+        //     // Position at 1.5 cm from bottom
+        //     $this->SetY(-15);
+        //     // Arial italic 8
+        //     $this->SetFont('Arial', 'I', 8);
+        //     $this->SetTextColor(150);
+        //     // Page number
+        //     $this->Cell(0, 10, 'Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+        // }
+
+        // Section Title
+        function SectionTitle($title)
+        {
+            $this->SetFont('Arial', 'B', 14);
+            $this->SetFillColor(78, 115, 223); // Primary blue
+            $this->SetTextColor(255, 255, 255);
+            $this->Cell(0, 10, "  " . $title, 0, 1, 'L', true);
+            $this->Ln(5);
+        }
+
+        // Table Header
+        function FancyHeader($header, $widths)
+        {
+            $this->SetFont('Arial', 'B', 10);
+            $this->SetFillColor(233, 238, 250); // Light blue-gray
+            $this->SetTextColor(90, 92, 105); // Dark text
+            $this->SetDrawColor(227, 230, 240);
+            $this->SetLineWidth(0.3);
+            for ($i = 0; $i < count($header); $i++) {
+                $this->Cell($widths[$i], 7, $header[$i], 1, 0, 'C', true);
+            }
+            $this->Ln();
+        }
     }
-    $pdf->Ln(4);
+
+    $pdf = new PDF_Report('P', 'mm', 'A4');
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+    $pdf->SetFont('Arial', '', 10);
+
+    // Department Stats
+    $pdf->SectionTitle('Department Statistics');
+    $header = ['Department', 'Employee Count'];
+    $widths = [140, 50];
+    $pdf->FancyHeader($header, $widths);
+    $stmt = $pdo->query("SELECT d.dept_name, COUNT(e.emp_id) as employee_count FROM departments d LEFT JOIN employees e ON d.dept_id = e.dept_id GROUP BY d.dept_id, d.dept_name ORDER BY employee_count DESC");
+    $pdf->SetFillColor(248, 249, 252);
+    $pdf->SetTextColor(0);
+    $fill = false;
+    foreach ($stmt->fetchAll() as $row) {
+        $pdf->Cell($widths[0], 6, $row['dept_name'], 'LR', 0, 'L', $fill);
+        $pdf->Cell($widths[1], 6, $row['employee_count'], 'LR', 0, 'C', $fill);
+        $pdf->Ln();
+        $fill = !$fill;
+    }
+    $pdf->Cell(array_sum($widths), 0, '', 'T');
+    $pdf->Ln(10);
+
     // Project Stats
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Project Status', 0, 1);
-    $pdf->SetFont('Arial', '', 11);
+    $pdf->SectionTitle('Project Status');
+    $header = ['Status', 'Count'];
+    $widths = [140, 50];
+    $pdf->FancyHeader($header, $widths);
+    $fill = false;
     $statuses = ['planning', 'ongoing', 'completed', 'on-hold'];
     foreach ($statuses as $status) {
         $count = $pdo->query("SELECT COUNT(*) FROM projects WHERE status = '" . $status . "'")->fetchColumn();
-        $pdf->Cell(60, 7, ucfirst($status), 1);
-        $pdf->Cell(40, 7, $count, 1);
+        $pdf->Cell($widths[0], 6, ucfirst($status), 'LR', 0, 'L', $fill);
+        $pdf->Cell($widths[1], 6, $count, 'LR', 0, 'C', $fill);
         $pdf->Ln();
+        $fill = !$fill;
     }
-    $pdf->Ln(4);
+    $pdf->Cell(array_sum($widths), 0, '', 'T');
+    $pdf->Ln(10);
+    
     // Attendance Stats
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Attendance (Current Month)', 0, 1);
-    $pdf->SetFont('Arial', '', 11);
+    $pdf->SectionTitle('Attendance (Current Month)');
+    $header = ['Status', 'Count'];
+    $widths = [140, 50];
+    $pdf->FancyHeader($header, $widths);
+    $fill = false;
     $statuses = ['present', 'late', 'absent', 'half-day'];
     foreach ($statuses as $status) {
         $count = $pdo->query("SELECT COUNT(*) FROM attendance WHERE status = '" . $status . "' AND MONTH(attendance_date) = MONTH(CURRENT_DATE) AND YEAR(attendance_date) = YEAR(CURRENT_DATE)")->fetchColumn();
-        $pdf->Cell(60, 7, ucfirst($status), 1);
-        $pdf->Cell(40, 7, $count, 1);
+        $pdf->Cell($widths[0], 6, ucfirst($status), 'LR', 0, 'L', $fill);
+        $pdf->Cell($widths[1], 6, $count, 'LR', 0, 'C', $fill);
         $pdf->Ln();
+        $fill = !$fill;
     }
-    $pdf->Ln(4);
+    $pdf->Cell(array_sum($widths), 0, '', 'T');
+    $pdf->Ln(10);
+
     // Leave Stats
-    $pdf->SetFont('Arial', 'B', 12);
-    $pdf->Cell(0, 8, 'Leave Types', 0, 1);
-    $pdf->SetFont('Arial', '', 11);
+    $pdf->SectionTitle('Approved Leaves by Type');
+    $header = ['Leave Type', 'Count'];
+    $widths = [140, 50];
+    $pdf->FancyHeader($header, $widths);
+    $fill = false;
     $stmt = $pdo->query("SELECT lt.leave_type_name, COUNT(lr.leave_id) as count FROM leave_types lt LEFT JOIN leave_requests lr ON lt.leave_type_id = lr.leave_type_id AND lr.status = 'approved' GROUP BY lt.leave_type_id, lt.leave_type_name ORDER BY count DESC");
     foreach ($stmt->fetchAll() as $row) {
-        $pdf->Cell(60, 7, $row['leave_type_name'], 1);
-        $pdf->Cell(40, 7, $row['count'], 1);
+        $pdf->Cell($widths[0], 6, $row['leave_type_name'], 'LR', 0, 'L', $fill);
+        $pdf->Cell($widths[1], 6, $row['count'], 'LR', 0, 'C', $fill);
         $pdf->Ln();
+        $fill = !$fill;
     }
-    $pdf->Output('D', 'dashboard_reports_' . date('Ymd_His') . '.pdf');
+    $pdf->Cell(array_sum($widths), 0, '', 'T');
+
+    // Hired Employees Report
+    if (isset($_POST['filter_submitted']) && $_POST['filter_submitted'] == '1') {
+        $hire_start = !empty($_POST['hire_start']) ? $_POST['hire_start'] : '1900-01-01';
+        $hire_end = !empty($_POST['hire_end']) ? $_POST['hire_end'] : date('Y-m-d');
+        $role = !empty($_POST['role']) ? $_POST['role'] : '';
+
+        $query = "
+            SELECT e.*, u.username, u.email, u.status as user_status, u.role, d.dept_name 
+            FROM employees e 
+            LEFT JOIN users u ON e.user_id = u.user_id 
+            LEFT JOIN departments d ON e.dept_id = d.dept_id 
+            WHERE e.hire_date BETWEEN ? AND ?
+        ";
+        $params = [$hire_start, $hire_end];
+        if ($role) {
+            $query .= " AND u.role = ?";
+            $params[] = $role;
+        }
+        $query .= " ORDER BY e.hire_date ASC";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $filtered_employees = $stmt->fetchAll();
+
+        $pdf->AddPage('L', 'A4');
+        $pdf->SectionTitle('Filtered Employee Report');
+        $header = ['Name', 'Gender', 'Role', 'Department', 'Position', 'Email', 'Hire Date', 'Status'];
+        $widths = [45, 15, 25, 40, 40, 55, 25, 20];
+        $pdf->FancyHeader($header, $widths);
+        $fill = false;
+        foreach ($filtered_employees as $emp) {
+            $status = 'Deleted';
+            if (!empty($emp['user_status']) && $emp['user_status'] === 'active') {
+                $status = 'Active';
+            }
+            $pdf->Cell($widths[0], 6, $emp['first_name'] . ' ' . $emp['last_name'], 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[1], 6, ucfirst($emp['gender']), 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[2], 6, ucfirst($emp['role'] ?? 'N/A'), 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[3], 6, $emp['dept_name'] ?? 'Not Assigned', 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[4], 6, $emp['position'], 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[5], 6, $emp['email'] ?? 'N/A', 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[6], 6, $emp['hire_date'], 'LR', 0, 'C', $fill);
+            $pdf->Cell($widths[7], 6, $status, 'LR', 0, 'C', $fill);
+            $pdf->Ln();
+            $fill = !$fill;
+        }
+        $pdf->Cell(array_sum($widths), 0, '', 'T');
+    }
+
+    $pdf->Output('D', 'Naallo_Report_' . date('Y-m-d') . '.pdf');
     exit();
 }
 
@@ -373,12 +531,20 @@ try {
                     <div class="d-flex gap-2">
                         <form method="post" style="display:inline;">
                             <input type="hidden" name="export_reports" value="1">
+                            <input type="hidden" name="filter_submitted" value="<?php echo isset($_GET['filter_submitted']) ? '1' : ''; ?>">
+                            <input type="hidden" name="hire_start" value="<?php echo isset($_GET['hire_start']) ? htmlspecialchars($_GET['hire_start']) : ''; ?>">
+                            <input type="hidden" name="hire_end" value="<?php echo isset($_GET['hire_end']) ? htmlspecialchars($_GET['hire_end']) : ''; ?>">
+                            <input type="hidden" name="role" value="<?php echo isset($_GET['role']) ? htmlspecialchars($_GET['role']) : ''; ?>">
                             <button type="submit" class="btn btn-success fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(40,167,69,0.08);">
                                 <i class="fas fa-file-csv me-2"></i> EXPORT CSV
                             </button>
                         </form>
                         <form method="post" style="display:inline;">
                             <input type="hidden" name="export_reports_pdf" value="1">
+                            <input type="hidden" name="filter_submitted" value="<?php echo isset($_GET['filter_submitted']) ? '1' : ''; ?>">
+                            <input type="hidden" name="hire_start" value="<?php echo isset($_GET['hire_start']) ? htmlspecialchars($_GET['hire_start']) : ''; ?>">
+                            <input type="hidden" name="hire_end" value="<?php echo isset($_GET['hire_end']) ? htmlspecialchars($_GET['hire_end']) : ''; ?>">
+                            <input type="hidden" name="role" value="<?php echo isset($_GET['role']) ? htmlspecialchars($_GET['role']) : ''; ?>">
                             <button type="submit" class="btn btn-danger fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(220,53,69,0.08);">
                                 <i class="fas fa-file-pdf me-2"></i> EXPORT PDF
                             </button>
@@ -392,6 +558,7 @@ try {
 
             <!-- Add before the main dashboard header (after <div class="container-fluid py-4">): -->
             <form method="GET" class="row g-3 mb-4">
+                <input type="hidden" name="filter_submitted" value="1">
                 <div class="col-md-3">
                     <label class="form-label">Hire Date From</label>
                     <input type="date" class="form-control" name="hire_start" value="<?php echo isset($_GET['hire_start']) ? htmlspecialchars($_GET['hire_start']) : ''; ?>">
@@ -400,33 +567,61 @@ try {
                     <label class="form-label">Hire Date To</label>
                     <input type="date" class="form-control" name="hire_end" value="<?php echo isset($_GET['hire_end']) ? htmlspecialchars($_GET['hire_end']) : ''; ?>">
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Role</label>
+                    <select class="form-select" name="role">
+                        <option value="" <?php echo (!isset($_GET['role']) || $_GET['role'] === '') ? 'selected' : ''; ?>>All Roles</option>
+                        <option value="employee" <?php echo (isset($_GET['role']) && $_GET['role'] === 'employee') ? 'selected' : ''; ?>>Employee</option>
+                        <option value="manager" <?php echo (isset($_GET['role']) && $_GET['role'] === 'manager') ? 'selected' : ''; ?>>Manager</option>
+                    </select>
+                </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filter Employees by Hire Date</button>
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i> Filter</button>
                 </div>
             </form>
 
             <!-- Add after the dashboard header, before the stat cards: -->
             <?php
-            if (isset($_GET['hire_start']) || isset($_GET['hire_end'])) {
-                $hire_start = isset($_GET['hire_start']) && $_GET['hire_start'] !== '' ? $_GET['hire_start'] : '1900-01-01';
-                $hire_end = isset($_GET['hire_end']) && $_GET['hire_end'] !== '' ? $_GET['hire_end'] : date('Y-m-d');
-                $stmt = $pdo->prepare("SELECT e.*, u.username, u.email, d.dept_name FROM employees e JOIN users u ON e.user_id = u.user_id LEFT JOIN departments d ON e.dept_id = d.dept_id WHERE e.hire_date BETWEEN ? AND ? ORDER BY e.hire_date ASC");
-                $stmt->execute([$hire_start, $hire_end]);
+            if (isset($_GET['filter_submitted'])) {
+                $hire_start = !empty($_GET['hire_start']) ? $_GET['hire_start'] : '1900-01-01';
+                $hire_end = !empty($_GET['hire_end']) ? $_GET['hire_end'] : date('Y-m-d');
+                $role = !empty($_GET['role']) ? $_GET['role'] : '';
+
+                $query = "
+                    SELECT e.*, u.username, u.email, u.status as user_status, u.role, d.dept_name 
+                    FROM employees e 
+                    LEFT JOIN users u ON e.user_id = u.user_id 
+                    LEFT JOIN departments d ON e.dept_id = d.dept_id 
+                    WHERE e.hire_date BETWEEN ? AND ?
+                ";
+                $params = [$hire_start, $hire_end];
+
+                if ($role) {
+                    $query .= " AND u.role = ?";
+                    $params[] = $role;
+                }
+                
+                $query .= " ORDER BY e.hire_date ASC";
+
+                $stmt = $pdo->prepare($query);
+                $stmt->execute($params);
                 $filtered_employees = $stmt->fetchAll();
                 ?>
                 <div class="card mb-4">
-                    <div class="card-header bg-primary text-white"><b>Employees Hired from <?php echo htmlspecialchars($hire_start); ?> to <?php echo htmlspecialchars($hire_end); ?></b></div>
+                    <div class="card-header bg-primary text-white"><b>Filtered Employee Report</b></div>
                     <div class="card-body table-responsive">
                         <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>Gender</th>
+                                    <th>Role</th>
                                     <th>Department</th>
                                     <th>Position</th>
                                     <th>Email</th>
                                     <th>Phone</th>
                                     <th>Hire Date</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -434,16 +629,26 @@ try {
                                 <tr>
                                     <td><?php echo htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']); ?></td>
                                     <td><?php echo ucfirst($emp['gender']); ?></td>
+                                    <td><?php echo ucfirst(htmlspecialchars($emp['role'] ?? 'N/A')); ?></td>
                                     <td><?php echo htmlspecialchars($emp['dept_name'] ?? 'Not Assigned'); ?></td>
                                     <td><?php echo htmlspecialchars($emp['position']); ?></td>
-                                    <td><?php echo htmlspecialchars($emp['email']); ?></td>
+                                    <td><?php echo htmlspecialchars($emp['email'] ?? 'N/A'); ?></td>
                                     <td><?php echo htmlspecialchars($emp['phone']); ?></td>
                                     <td><?php echo htmlspecialchars($emp['hire_date']); ?></td>
+                                    <td>
+                                        <?php if ($emp['user_status'] === 'active'): ?>
+                                            <span class="badge bg-success">Active</span>
+                                        <?php elseif ($emp['user_status']): ?>
+                                            <span class="badge bg-danger text-white">Deleted</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger">Deleted</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
                         </table>
-                        <?php if (empty($filtered_employees)) echo '<div class="text-danger">No employees found for the selected date range.</div>'; ?>
+                        <?php if (empty($filtered_employees)) echo '<div class="text-danger">No employees found for the selected filters.</div>'; ?>
                     </div>
                 </div>
             <?php } ?>

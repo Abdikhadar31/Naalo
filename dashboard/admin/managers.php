@@ -83,23 +83,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $pdo->beginTransaction();
 
+                    $user_id = $_POST['user_id'];
+
                     // First remove manager as department head if assigned
                     $stmt = $pdo->prepare("UPDATE departments SET dept_head = NULL WHERE dept_head = ?");
-                    $stmt->execute([$_POST['user_id']]);
+                    $stmt->execute([$user_id]);
 
-                    // Delete from employees table
-                    $stmt = $pdo->prepare("DELETE FROM employees WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
+                    // Set manager's dept_id to NULL in employees table
+                    $stmt = $pdo->prepare("UPDATE employees SET dept_id = NULL WHERE user_id = ?");
+                    $stmt->execute([$user_id]);
 
-                    // Delete from users table
-                    $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
+                    // Soft delete: set status to 'deleted' in users table
+                    $stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE user_id = ?");
+                    $stmt->execute([$user_id]);
 
                     $pdo->commit();
-                    $success = "Manager deleted successfully!";
+                    $success = "Manager has been deleted succesfully.";
                 } catch (PDOException $e) {
                     if (isset($pdo)) $pdo->rollBack();
-                    $error = "Error deleting manager: " . $e->getMessage();
+                    $error = "Error deactivating manager: " . $e->getMessage();
                 }
                 break;
         }
@@ -167,7 +169,7 @@ try {
         FROM users u
         JOIN employees e ON u.user_id = e.user_id
         LEFT JOIN departments d ON d.dept_head = u.user_id
-        WHERE u.role = 'manager'
+        WHERE u.role = 'manager' AND u.status != 'deleted'
         ORDER BY e.first_name, e.last_name
     ");
     $managers = $stmt->fetchAll();
@@ -347,7 +349,6 @@ try {
                                     <th>Department</th>
                                     <th>Hire Date</th>
                                     <th>Basic Salary</th>
-                                    <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -384,11 +385,6 @@ try {
                                     <td><?php echo htmlspecialchars($manager['dept_name'] ?? 'Not Assigned'); ?></td>
                                     <td class="text-nowrap"><?php echo date('Y-m-d', strtotime($manager['hire_date'])); ?></td>
                                     <td><?php echo number_format($manager['basic_salary'], 2); ?></td>
-                                    <td>
-                                        <span class="badge bg-<?php echo $manager['status'] === 'active' ? 'success' : 'danger'; ?>">
-                                            <?php echo ucfirst($manager['status']); ?>
-                                        </span>
-                                    </td>
                                     <td>
                                         <div class="d-flex gap-2 justify-content-center align-items-center">
                                             <button class="btn btn-sm btn-outline-primary" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick='editManager(<?php echo json_encode($manager); ?>)'>

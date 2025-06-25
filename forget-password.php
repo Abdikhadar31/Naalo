@@ -36,13 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mail->isSMTP();
                 $mail->Host = 'smtp.gmail.com';
                 $mail->SMTPAuth = true;
-                $mail->Username = 'faarisfun@gmail.com'; // Replace with your email
-                $mail->Password = 'iamj bhgr gzgm atgg'; // Replace with your app password
+                $mail->Username = 'naalloms@gmail.com'; // Replace with your email
+                $mail->Password = 'edjj fcdg xkry srjy'; // Replace with your app password
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port = 587;
 
                 // Recipients
-                $mail->setFrom('faarisfun@gmail.com', 'Naallo Support');
+                $mail->setFrom('naalloms@gmail.com', 'Naallo Support');
                 $mail->addAddress($user['email']);
 
                 // Content

@@ -107,10 +107,20 @@ $success = $error = '';
 $current_month = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
 
 // Get the employee's emp_id from the session user_id
-$stmt = $pdo->prepare('SELECT emp_id FROM employees WHERE user_id = ?');
+$stmt = $pdo->prepare('SELECT emp_id, first_name, last_name FROM employees WHERE user_id = ?');
 $stmt->execute([$_SESSION['user_id']]);
 $emp = $stmt->fetch();
 $emp_id = $emp ? $emp['emp_id'] : 0;
+$employee_name = $emp ? trim($emp['first_name'] . ' ' . $emp['last_name']) : $_SESSION['username'];
+
+// Get company settings for header
+$settings_stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
+$settings_array = $settings_stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+$company_name = $settings_array['company_name'] ?? 'Naallo';
+$company_address = $settings_array['company_address'] ?? 'Kismayo, Somalia';
+$company_email = $settings_array['company_email'] ?? 'info@naallo.com';
+$company_phone = $settings_array['company_phone'] ?? '+252 615 123 456';
+$logo_path = '../../assets/images/LOGO.jpg';
 
 // Get the latest payroll record for the employee
 try {
@@ -530,6 +540,76 @@ try {
                 background-color: white;
             }
         }
+
+        .payslip-header-print {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 2px solid #e3e6f0;
+            margin-bottom: 1.5rem;
+        }
+        .payslip-header-print .logo img {
+            max-height: 50px;
+        }
+        .payslip-header-print .company-details {
+            text-align: right;
+        }
+        .payslip-header-print .company-details h3 {
+            margin: 0;
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+        .payslip-header-print .company-details p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: var(--dark-color);
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f8f9fc;
+            display: none !important;
+        }
+        .main-content > .container-fluid > .row, .main-content > .container-fluid > .card {
+            display: none !important;
+        }
+
+        .payslip-wrapper {
+            display: block !important;
+        }
+
+        #main-content > .container-fluid {
+            padding: 0 !important;
+        }
+
+        .fancy-payslip {
+            box-shadow: none !important;
+            margin: 0 !important;
+            border: 1px solid #ddd !important;
+            page-break-inside: avoid;
+        }
+
+        .payslip-header-print {
+            display: flex !important;
+        }
+        
+        /* Force colors to print */
+        .fancy-payslip-header, .fancy-payslip-summary, .badge {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .badge.bg-success { background-color: #1cc88a !important; color: white !important; }
+        .badge.bg-info { background-color: #36b9cc !important; color: white !important; }
+        .badge.bg-warning { background-color: #f6c23e !important; color: white !important; }
+        
+        .fancy-payslip-header {
+            background: linear-gradient(90deg, #4e73df 0%, #36b9cc 100%) !important;
+        }
+        .fancy-payslip-summary {
+            background: linear-gradient(90deg, #f8fafc 0%, #e3e6f0 100%) !important;
+        }
     </style>
 </head>
 <body>
@@ -650,17 +730,30 @@ try {
 
             <!-- Current Payslip -->
             <?php if ($payroll): ?>
-                <div class="fancy-payslip p-4">
-                    <div class="fancy-payslip-header">
-                        <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
-                        <h4>PAYSLIP</h4>
-                        <p>For the period of <?php echo date('F Y', strtotime($payroll['start_date'])); ?></p>
+                <div class="payslip-wrapper">
+                    <div class="payslip-header-print">
+                        <div class="logo">
+                            <?php if (file_exists($logo_path)): ?>
+                                <img src="<?php echo $logo_path; ?>" alt="Company Logo">
+                            <?php endif; ?>
+                        </div>
+                        <div class="company-details">
+                            <h3><?php echo htmlspecialchars($company_name); ?></h3>
+                            <p><?php echo htmlspecialchars($company_address); ?></p>
+                            <p><?php echo htmlspecialchars($company_email); ?> | <?php echo htmlspecialchars($company_phone); ?></p>
+                        </div>
                     </div>
+                    <div class="fancy-payslip p-4">
+                        <div class="fancy-payslip-header">
+                            <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                            <h4>PAYSLIP</h4>
+                            <p>For the period of <?php echo date('F Y', strtotime($payroll['start_date'])); ?></p>
+                        </div>
 
                         <div class="fancy-payslip-details">
                             <div class="detail-col">
                                 <label>Employee Name</label>
-                                <div class="value"><?php echo htmlspecialchars($_SESSION['username']); ?></div>
+                                <div class="value"><?php echo htmlspecialchars($employee_name); ?></div>
                                 
                                 <label>Pay Period</label>
                                 <div class="value">

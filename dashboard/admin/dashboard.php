@@ -17,8 +17,44 @@ try {
         'active_projects' => $pdo->query("SELECT COUNT(*) FROM projects WHERE status = 'in_progress'")->fetchColumn(),
         'pending_payroll' => $pdo->query("SELECT COUNT(*) FROM payroll WHERE status = 'draft'")->fetchColumn()
     ];
+
+    // Fetch department distribution data for chart
+    $dept_stmt = $pdo->query("
+        SELECT d.dept_name, COUNT(e.emp_id) as employee_count
+        FROM departments d
+        LEFT JOIN employees e ON d.dept_id = e.dept_id
+        GROUP BY d.dept_id, d.dept_name
+        ORDER BY employee_count DESC
+    ");
+    $department_distribution = $dept_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch employee growth data for chart
+    $growth_data_db = $pdo->query("
+        SELECT 
+            DATE_FORMAT(hire_date, '%Y-%m') as month,
+            COUNT(emp_id) as count
+        FROM employees
+        WHERE hire_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+        GROUP BY month
+        ORDER BY month ASC
+    ")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $employee_growth_labels = [];
+    $employee_growth_data = [];
+    $date = new DateTime();
+    $date->sub(new DateInterval('P11M')); // Go back 11 months
+    for ($i=0; $i<12; $i++) {
+        $month_key = $date->format('Y-m');
+        $employee_growth_labels[] = $date->format('M'); // e.g., 'Jan'
+        $employee_growth_data[] = isset($growth_data_db[$month_key]) ? (int)$growth_data_db[$month_key] : 0;
+        $date->add(new DateInterval('P1M'));
+    }
+
 } catch (PDOException $e) {
     $error = "Error fetching statistics";
+    $department_distribution = []; // Ensure variable exists in case of error
+    $employee_growth_labels = []; // Init in case of error
+    $employee_growth_data = [];   // Init in case of error
 }
 
 // Handle admin profile update and password change from topbar modals
@@ -337,10 +373,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     new Chart(employeeGrowthCtx, {
         type: 'line',
         data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+            labels: <?php echo json_encode($employee_growth_labels); ?>,
             datasets: [{
                 label: 'Employees Added',
-                data: [5, 8, 6, 10, 12, 9, 14, 11],
+                data: <?php echo json_encode($employee_growth_data); ?>,
                 borderColor: '#4e73df',
                 backgroundColor: 'rgba(78, 115, 223, 0.1)',
                 tension: 0.4,
@@ -367,14 +403,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     new Chart(departmentCtx, {
         type: 'doughnut',
         data: {
-            labels: ['IT', 'Marketing', 'Finance', 'HR'],
+            labels: <?php echo json_encode(array_column($department_distribution, 'dept_name')); ?>,
             datasets: [{
-                data: [20, 15, 10, 8],
+                data: <?php echo json_encode(array_column($department_distribution, 'employee_count')); ?>,
                 backgroundColor: [
                     '#4e73df',
                     '#1cc88a',
                     '#f6c23e',
-                    '#36b9cc'
+                    '#36b9cc',
+                    '#e74a3b',
+                    '#5a5c69'
                 ]
             }]
         },

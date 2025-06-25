@@ -263,6 +263,7 @@ try {
                             <select class="form-select" name="status" required>
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
+                                <option value="inactive">deleted</option>
                             </select>
                         </div>
                     </div>
@@ -318,6 +319,7 @@ try {
                             <select class="form-select" name="status" id="edit_status" required>
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
+                                <option value="inactive">deleted</option>
                             </select>
                         </div>
                     </div>

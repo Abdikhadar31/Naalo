@@ -42,13 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
                 $mail->isSMTP();
                 $mail->Host = 'smtp.gmail.com'; // or your SMTP host
                 $mail->SMTPAuth = true;
-                $mail->Username = 'faarisfun@gmail.com'; // <-- CHANGE THIS
-                $mail->Password = 'iamj bhgr gzgm atgg'; // <-- CHANGE THIS (use app password for Gmail)
+                $mail->Username = 'naalloms@gmail.com'; // <-- CHANGE THIS
+                $mail->Password = 'edjj fcdg xkry srjy'; // <-- CHANGE THIS (use app password for Gmail)
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // or PHPMailer::ENCRYPTION_SMTPS for SSL
                 $mail->Port = 587; // 465 for SSL
 
-                $mail->setFrom('faarisfun@gmail.com', 'Naallo Contact');
-                $mail->addAddress('faarisfun@gmail.com', 'Admin');
+                $mail->setFrom('naalloms@gmail.com', 'Naallo Contact');
+                $mail->addAddress('naalloms@gmail.com', 'Admin');
                 $mail->addReplyTo($email, $name);
 
                 $mail->Subject = "New Message from Landing Page: $subject";
@@ -63,11 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
                 $autoReply->isSMTP();
                 $autoReply->Host = 'smtp.gmail.com';
                 $autoReply->SMTPAuth = true;
-                $autoReply->Username = 'faarisfun@gmail.com'; // <-- IMPORTANT: CHANGE THIS to your actual email
-                $autoReply->Password = 'iamj bhgr gzgm atgg'; // <-- IMPORTANT: CHANGE THIS to your actual app password
+                $autoReply->Username = 'naalloms@gmail.com'; // <-- IMPORTANT: CHANGE THIS to your actual email
+                $autoReply->Password = 'edjj fcdg xkry srjy'; // <-- IMPORTANT: CHANGE THIS to your actual app password
                 $autoReply->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $autoReply->Port = 587;
-                $autoReply->setFrom('faarisfun@gmail.com', 'Naallo Team');
+                $autoReply->setFrom('naalloms@gmail.com', 'Naallo Team');
                 $autoReply->addAddress($email, $name);
                 $autoReply->Subject = 'We received your message';
                 $autoReply->Body = "Dear $name,\n\nWe received your message and will respond shortly.\n\nThank you,\nNaallo Team";

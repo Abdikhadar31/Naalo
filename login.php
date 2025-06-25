@@ -9,7 +9,7 @@ if (isset($_SESSION['user_id'])) {
         $stmt->execute([$_SESSION['user_id']]);
         $user = $stmt->fetch();
         
-        if ($user && in_array($user['status'], ['inactive', 'on_leave'])) {
+        if ($user && in_array($user['status'], ['inactive', 'deleted'])) {
             session_destroy();
             header("Location: ./index.php?error=inactive_user");
             exit();
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$username, $role]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($password, $user['password']) && !in_array($user['status'], ['inactive', 'on_leave'])) {
+        if ($user && password_verify($password, $user['password']) && !in_array($user['status'], ['inactive', 'deleted'])) {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
@@ -316,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="btn-login">Login</button>
             <div class="back-link">
-                <a href="../h/index.php">Back to Landing</a>
+                <a href="index.php">Back to Landing</a>
             </div>
         </form>
     </div>

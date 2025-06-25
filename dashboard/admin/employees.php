@@ -86,28 +86,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'delete':
                 try {
                     $pdo->beginTransaction();
+                    $user_id = $_POST['user_id'];
 
-                    // Remove as department head if set
+                    // Unassign as department head if they were one
                     $stmt = $pdo->prepare("UPDATE departments SET dept_head = NULL WHERE dept_head = ?");
-                    $stmt->execute([$_POST['user_id']]);
-
-                    // Set employee's dept_id to NULL
+                    $stmt->execute([$user_id]);
+                    
+                    // Update employees table: set dept_id to NULL
                     $stmt = $pdo->prepare("UPDATE employees SET dept_id = NULL WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
+                    $stmt->execute([$user_id]);
 
-                    // Delete employee record first
-                    $stmt = $pdo->prepare("DELETE FROM employees WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
-
-                    // Then delete user record
-                    $stmt = $pdo->prepare("DELETE FROM users WHERE user_id = ?");
-                    $stmt->execute([$_POST['user_id']]);
+                    // Update users table: set status to 'inactive'
+                    $stmt = $pdo->prepare("UPDATE users SET status = 'deleted' WHERE user_id = ?");
+                    $stmt->execute([$user_id]);
 
                     $pdo->commit();
-                    $success = "Employee deleted successfully!";
+                    $success = "Employee has been deleted succesfully.";
                 } catch (PDOException $e) {
                     $pdo->rollBack();
-                    $error = "Error deleting employee: " . $e->getMessage();
+                    $error = "Error deactivating employee: " . $e->getMessage();
                 }
                 break;
         }
