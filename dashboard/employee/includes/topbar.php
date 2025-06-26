@@ -32,6 +32,16 @@ $user = $stmt->fetch();
     </div>
 
     <div class="topbar-right">
+        <div class="employee-info" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; margin-right: 1.25rem;">
+            <span style="font-weight: 600; color: #2c3e50; line-height: 1; font-size: 1.08rem;">
+                <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
+            </span>
+            <span style="font-size: 0.95rem; color: #7b809a; line-height: 1;">
+                <?php echo htmlspecialchars(ucfirst($user['role'])); ?>
+                <!-- <?php if (!empty($user['department_name'])): ?> 
+                  <?php echo htmlspecialchars($user['department_name']); ?><?php endif; ?> -->
+            </span>
+        </div>
         <div class="profile-dropdown">
             <button class="profile-btn" id="profileDropdownBtn" type="button">
                 <div class="profile-avatar">
