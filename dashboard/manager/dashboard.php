@@ -466,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php include 'includes/topbar.php'; ?>
 
     <div class="main-content" style="margin-left:260px; padding-top:70px; min-height:100vh; background:#f8f9fc;">
-        <div class="dashboard-header">
+        <div class="dashboard-header" style="margin-top: 32px;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="h2 mb-0">Dashboard Overview</h1>

@@ -477,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="main-content">
         <?php include 'includes/topbar.php'; ?>
 
-        <div class="dashboard-header mb-4" style="background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58,59,69,0.15);">
+        <div class="dashboard-header" style="margin-top: 32px; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58,59,69,0.15);">
             <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <div class="pe-3">
                     <h1 class="fw-bold mb-1" style="font-size:2rem; color:#222;">Project Management</h1>
@@ -575,7 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $total_days = ($end - $start) / (60 * 60 * 24);
                                 $days_passed = ($today - $start) / (60 * 60 * 24);
                                 
-                                $progress = min(100, max(0, ($days_passed / $total_days) * 100));
+                                $progress = ($total_days > 0) ? min(100, max(0, ($days_passed / $total_days) * 100)) : 0;
                                 ?>
 
                                 <div class="progress">
