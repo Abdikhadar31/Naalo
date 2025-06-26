@@ -175,7 +175,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Payslip - EMS Employee</title>
+    <title>My Payslip</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -630,7 +630,7 @@ try {
                 <div class="container-fluid">
                     <div class="d-flex justify-content-between align-items-center">
                         <h1 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>My Payslip</h1>
-                        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print me-2"></i>Print Payslip</button>
+                        <!-- <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print me-2"></i>Print Payslip</button> -->
                     </div>
                 </div>
             </div>
