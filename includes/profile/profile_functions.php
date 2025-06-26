@@ -113,10 +113,10 @@ function handleProfileUpdate($pdo, $userId, $role) {
                 $error_message = "Error: " . $e->getMessage();
             }
         }
-    }
+    
 
     return ['success' => $success_message, 'error' => $error_message];
-}
+
 
 function getUserProfile($pdo, $userId) {
     $stmt = $pdo->prepare("
