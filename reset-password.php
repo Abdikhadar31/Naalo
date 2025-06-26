@@ -2,33 +2,29 @@
 session_start();
 require_once './config/database.php';
 
-$token = $_GET['token'] ?? '';
+// Only allow access if verified
+if (!isset($_SESSION['verified_email'])) {
+    header('Location: forget-password.php');
+    exit();
+}
+$email = $_SESSION['verified_email'];
+$error = '';
+$success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset($_POST['confirm_password'])) {
     if ($_POST['password'] !== $_POST['confirm_password']) {
         $error = "Passwords do not match.";
-        exit;
-    }
-
-    $new_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    
-    try {
-        // Verify token and update password
-        $stmt = $pdo->prepare("SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()");
-        $stmt->execute([$token]);
-        $user = $stmt->fetch();
-
-        if ($user) {
-            // Update password and clear reset token
-            $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE user_id = ?");
-            $stmt->execute([$new_password, $user['user_id']]);
-            
-            $success = "Your password has been successfully reset. You can now login with your new password.";
-        } else {
-            $error = "Invalid or expired reset token.";
+    } else {
+        $new_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+        try {
+            // Update password and clear reset_code
+            $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_code_expires = NULL WHERE email = ?");
+            $stmt->execute([$new_password, $email]);
+            unset($_SESSION['verified_email']);
+            $success = true;
+        } catch (Exception $e) {
+            $error = "Error resetting password. Please try again.";
         }
-    } catch (PDOException $e) {
-        $error = "Error: " . $e->getMessage();
     }
 }
 ?>
@@ -40,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password - Naallo</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #1e40af;
@@ -48,14 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
             --light-color: #f1f5f9;
             --accent-color: #f97316;
         }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
         }
-
         body {
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             min-height: 100vh;
@@ -63,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
             align-items: center;
             justify-content: center;
         }
-
         .reset-card {
             background: white;
             border-radius: 10px;
@@ -71,44 +66,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
             width: 100%;
             max-width: 400px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-out;
         }
-
         .reset-header {
             margin-bottom: 30px;
         }
-
-        .reset-header h1 {
+        .reset-header h2 {
             font-size: 24px;
             font-weight: 600;
             color: #333;
             margin-bottom: 5px;
+            text-align: center;
         }
-
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .alert-danger {
+            background-color: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
         .form-group {
             margin-bottom: 20px;
         }
-
         .form-group label {
             display: block;
             margin-bottom: 8px;
             color: #64748b;
+            font-size: 14px;
         }
-
         .form-group input {
             width: 100%;
             padding: 12px;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
             font-size: 16px;
+            box-sizing: border-box;
         }
-
         .form-group input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
         }
-
-        .btn {
+        .password-container {
+            position: relative;
+            width: 100%;
+        }
+        .password-container input {
+            padding-right: 40px;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #64748b;
+            font-size: 16px;
+        }
+        .toggle-password:hover {
+            color: var(--primary-color);
+        }
+        .btn-reset {
             width: 100%;
             padding: 12px;
             background-color: var(--primary-color);
@@ -119,88 +139,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
             cursor: pointer;
             transition: background-color 0.3s;
         }
-
-        .btn:hover {
+        .btn-reset:hover {
             background-color: var(--secondary-color);
         }
-
-        .error, .success {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .error {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-
-        .success {
-            background-color: #dcfce7;
-            color: #166534;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <div id="loading-spinner-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.85);z-index:9999;justify-content:center;align-items:center;flex-direction:column;">
-        <div class="spinner-border text-primary" role="status" style="width: 3.5rem; height: 3.5rem;">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <div class="spinner-text" style="margin-top:15px;color:#1e40af;font-weight:500;font-size:1.1rem;">Processing your request...</div>
-    </div>
-    <div class="reset-card">
-        <div class="reset-header">
-            <h1>Reset Password</h1>
-            <p>Please enter your new password below.</p>
-        </div>
-        <?php if (!isset($success)): ?>
-        <form method="POST" action="" id="resetForm">
-            <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
-            <div class="form-group">
-                <label for="password">New Password</label>
-                <input type="password" id="password" name="password" required>
+    <div class="container">
+        <div class="reset-card">
+            <div class="reset-header">
+                <h2>Reset Password</h2>
+                <p style="color: #666; margin-top: 5px; text-align:center;">Enter your new password below</p>
             </div>
-            <div class="form-group">
-                <label for="confirm_password">Confirm Password</label>
-                <input type="password" id="confirm_password" name="confirm_password" required>
-            </div>
-            <button type="submit" class="btn">Reset Password</button>
-        </form>
-        <?php endif; ?>
-        <?php if (isset($success)): ?>
-            <div class="success">Your password has been successfully reset. You can now <a href="login.php">login</a> with your new password.</div>
-        <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            <?php if (!$success): ?>
+            <form method="POST" id="resetForm">
+                <div class="form-group">
+                    <label for="password">New Password</label>
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" required>
+                        <span class="toggle-password" onclick="togglePassword('password', this)">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm New Password</label>
+                    <div class="password-container">
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                        <span class="toggle-password" onclick="togglePassword('confirm_password', this)">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <button type="submit" class="btn-reset">Reset Password</button>
+            </form>
+            <?php endif; ?>
+        </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php if ($success): ?>
     <script>
-    var form = document.getElementById('resetForm');
-    if (form) {
-        form.addEventListener('submit', function() {
-            document.getElementById('loading-spinner-overlay').style.display = 'flex';
-        });
-    }
-    </script>
-    <?php if (isset($error)): ?>
-    <script>
-    document.getElementById('loading-spinner-overlay').style.display = 'none';
     Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: <?php echo json_encode($error); ?>,
-        confirmButtonColor: '#e74a3b'
+        icon: 'success',
+        title: 'Password Reset Successful',
+        text: 'You can now login with your new password.',
+        confirmButtonColor: '#4e73df'
+    }).then(function() {
+        window.location.href = 'login.php';
     });
     </script>
     <?php endif; ?>
-    <?php if (isset($success)): ?>
+    <?php if (!$success): ?>
     <script>
-    document.getElementById('loading-spinner-overlay').style.display = 'none';
-    Swal.fire({
-        icon: 'success',
-        title: 'Success',
-        text: <?php echo json_encode($success); ?>,
-        confirmButtonColor: '#4e73df'
-    });
+    function togglePassword(fieldId, el) {
+        var input = document.getElementById(fieldId);
+        var icon = el.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
     </script>
     <?php endif; ?>
 </body>

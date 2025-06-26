@@ -15,6 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 try {
+                    // Validate basic salary
+                    if (!isset($_POST['basic_salary']) || floatval($_POST['basic_salary']) <= 0) {
+                        $error = "Basic salary must be greater than 0.";
+                        break;
+                    }
                     // Begin transaction
                     $pdo->beginTransaction();
 
@@ -46,6 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'edit':
                 try {
+                    // Validate basic salary
+                    if (!isset($_POST['basic_salary']) || floatval($_POST['basic_salary']) <= 0) {
+                        $error = "Basic salary must be greater than 0.";
+                        break;
+                    }
                     $pdo->beginTransaction();
 
                     // Update employee information

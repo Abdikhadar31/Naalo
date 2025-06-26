@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if ($user) {
-            // Generate reset token
-            $reset_token = bin2hex(random_bytes(32));
+            // Generate 6-digit code
+            $reset_code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             
-            // Store reset token in database
-            $stmt = $pdo->prepare("UPDATE users SET reset_token = ?, reset_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE user_id = ?");
-            $stmt->execute([$reset_token, $user['user_id']]);
+            // Store code in database
+            $stmt = $pdo->prepare("UPDATE users SET reset_code = ?, reset_code_expires = DATE_ADD(NOW(), INTERVAL 15 MINUTE), reset_token = NULL, reset_token_expires = NULL WHERE user_id = ?");
+            $stmt->execute([$reset_code, $user['user_id']]);
 
             // Send email using PHPMailer
             $mail = new PHPMailer(true);
@@ -47,22 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Content
                 $mail->isHTML(true);
-                $mail->Subject = 'Password Reset Request';
-                // Get the server URL
-                $server_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
-                // Build reset link dynamically for LAN/online use
-                $reset_link = $server_url . $config['reset_url_path'] . "?token=" . urlencode($reset_token);
-                $mail->Body = "
-                    <h2>Password Reset Request</h2>
-                    <p>Hello " . $user['username'] . ",</p>
-                    <p>You have requested to reset your password. Click the link below to reset your password:</p>
-                    <p><a href='" . $reset_link . "'>Reset Password</a></p>
-                    <p>This link will expire in 1 hour.</p>
-                    <p>If you did not request this password reset, please ignore this email.</p>
-                ";
+                $mail->Subject = 'Your Naallo Password Reset Code';
+                $mail->Body = "<h2>Password Reset Code</h2><p>Hello {$user['username']},</p><p>Your password reset code is:</p><h3 style='color:#1e40af;'>{$reset_code}</h3><p>This code will expire in 15 minutes.</p><p>If you did not request this, please ignore this email.</p>";
 
                 $mail->send();
-                $success = "An email with instructions to reset your password has been sent to your email address.";
+                $success = true;
             } catch (Exception $e) {
                 $error = "Message could not be sent. Mailer Error: " . $mail->ErrorInfo;
             }
@@ -212,6 +201,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.getElementById('resetForm').addEventListener('submit', function() {
         document.getElementById('loading-spinner-overlay').style.display = 'flex';
     });
+    <?php if (isset($success) && $success): ?>
+    document.getElementById('loading-spinner-overlay').style.display = 'none';
+    Swal.fire({
+        icon: 'success',
+        title: 'Verification Code Sent',
+        text: 'A 6-digit verification code has been sent to your email. Please enter it to continue.',
+        confirmButtonColor: '#4e73df'
+    }).then(function() {
+        window.location.href = 'verify-code.php?email=<?php echo urlencode($email); ?>';
+    });
+    <?php endif; ?>
     </script>
     <?php if (isset($error)): ?>
     <script>
@@ -221,17 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         title: 'Error',
         text: <?php echo json_encode($error); ?>,
         confirmButtonColor: '#e74a3b'
-    });
-    </script>
-    <?php endif; ?>
-    <?php if (isset($success)): ?>
-    <script>
-    document.getElementById('loading-spinner-overlay').style.display = 'none';
-    Swal.fire({
-        icon: 'success',
-        title: 'Success',
-        text: <?php echo json_encode($success); ?>,
-        confirmButtonColor: '#4e73df'
     });
     </script>
     <?php endif; ?>

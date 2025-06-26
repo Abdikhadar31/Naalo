@@ -18,7 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Validate dates
                     $start_date = new DateTime($_POST['start_date']);
                     $end_date = new DateTime($_POST['end_date']);
-                    
+                    $today = new DateTime(date('Y-m-d'));
+                    if ($start_date < $today) {
+                        throw new Exception("Start date cannot be before today");
+                    }
                     if ($end_date < $start_date) {
                         throw new Exception("End date cannot be before start date");
                     }
@@ -104,27 +107,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Validate dates
                     $start_date = new DateTime($_POST['start_date']);
                     $end_date = new DateTime($_POST['end_date']);
-                    
+                    $today = new DateTime(date('Y-m-d'));
+                    if ($start_date < $today) {
+                        throw new Exception("Start date cannot be before today");
+                    }
                     if ($end_date < $start_date) {
                         throw new Exception("End date cannot be before start date");
                     }
 
-                    // Validate manager_id exists in users table
+                    // Validate manager_id exists in employees and is a manager
                     $stmt = $pdo->prepare("
-                        SELECT u.user_id 
-                        FROM users u 
-                        WHERE u.user_id = ? AND u.role = 'manager'
+                        SELECT e.emp_id
+                        FROM employees e
+                        JOIN users u ON e.user_id = u.user_id
+                        WHERE e.emp_id = ? AND u.role = 'manager' AND u.status = 'active'
                     ");
                     $stmt->execute([$_POST['manager_id']]);
                     if (!$stmt->fetch()) {
                         throw new Exception("Invalid manager selected");
                     }
-                    
+
                     // Get current project details for comparison
                     $stmt = $pdo->prepare("SELECT manager_id FROM projects WHERE project_id = ?");
                     $stmt->execute([$_POST['project_id']]);
                     $current_project = $stmt->fetch();
-                    
+
                     // Update project details
                     $stmt = $pdo->prepare("
                         UPDATE projects SET 
@@ -137,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             updated_at = NOW()
                         WHERE project_id = ?
                     ");
-                    
                     $stmt->execute([
                         $_POST['project_name'],
                         $_POST['description'],
@@ -147,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_POST['manager_id'],
                         $_POST['project_id']
                     ]);
-                    
+
                     // If manager changed, add notification
                     if ($current_project['manager_id'] != $_POST['manager_id']) {
                         $notify_stmt = $pdo->prepare("
@@ -155,12 +161,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 user_id, type, message, reference_id, created_at
                             ) VALUES (?, 'project_assignment', ?, ?, NOW())
                         ");
-                        
-                        // Get user_id for the manager from emp_id
+                        // Get user_id for the manager from employees
                         $user_stmt = $pdo->prepare("SELECT user_id FROM employees WHERE emp_id = ?");
                         $user_stmt->execute([$_POST['manager_id']]);
                         $manager_user = $user_stmt->fetch();
-                        
                         if ($manager_user) {
                             $message = "You have been assigned as manager for project: " . $_POST['project_name'];
                             $notify_stmt->execute([$manager_user['user_id'], $message, $_POST['project_id']]);
@@ -241,8 +245,8 @@ try {
                COUNT(DISTINCT pa.emp_id) as assigned_employees_count,
                GROUP_CONCAT(DISTINCT CONCAT(e.first_name, ' ', e.last_name) SEPARATOR ', ') as team_members
         FROM projects p
-        LEFT JOIN users u ON p.manager_id = u.user_id
-        LEFT JOIN employees m ON u.user_id = m.user_id
+        LEFT JOIN employees m ON p.manager_id = m.emp_id
+        LEFT JOIN users u ON m.user_id = u.user_id
         LEFT JOIN departments d ON m.dept_id = d.dept_id
         LEFT JOIN project_assignments pa ON p.project_id = pa.project_id
         LEFT JOIN employees e ON pa.emp_id = e.emp_id
@@ -301,7 +305,7 @@ try {
         FROM employees e 
         JOIN users u ON e.user_id = u.user_id 
         LEFT JOIN departments d ON e.dept_id = d.dept_id
-        WHERE u.role = 'manager' 
+        WHERE u.role = 'manager' AND u.status = 'active'
         ORDER BY e.first_name
     ");
     $managers = $stmt->fetchAll();
@@ -313,7 +317,7 @@ try {
         FROM employees e 
         JOIN users u ON e.user_id = u.user_id 
         LEFT JOIN departments d ON e.dept_id = d.dept_id
-        WHERE u.role = 'employee' 
+        WHERE u.role = 'employee' AND u.status = 'active'
         ORDER BY e.first_name
     ");
     $employees = $stmt->fetchAll();
@@ -2147,7 +2151,7 @@ try {
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Start Date</label>
-                                        <input type="date" class="form-control" name="start_date" required>
+                                        <input type="date" class="form-control" name="start_date" required min="<?php echo date('Y-m-d'); ?>">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">End Date</label>
@@ -2355,7 +2359,7 @@ try {
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Start Date</label>
-                                        <input type="date" class="form-control" name="start_date" id="edit_start_date" required>
+                                        <input type="date" class="form-control" name="start_date" id="edit_start_date" required min="<?php echo date('Y-m-d'); ?>">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">End Date</label>
@@ -2498,10 +2502,10 @@ try {
                 // Common function to handle manager card selection
                 function handleManagerSelection(modalId) {
                     $(`${modalId} .manager-card`).off('click').on('click', function() {
-                        const managerId = $(this).data('value');
+                        const managerEmpId = $(this).data('value');
                         $(`${modalId} .manager-card`).removeClass('selected');
                         $(this).addClass('selected');
-                        $(`${modalId} #${modalId === '#editProjectModal' ? 'edit_' : ''}selected_manager_id`).val(managerId);
+                        $(`${modalId} #${modalId === '#editProjectModal' ? 'edit_' : ''}selected_manager_id`).val(managerEmpId);
                     });
                 }
 
@@ -2562,30 +2566,14 @@ try {
                     $('#editProjectModal .manager-card').removeClass('selected');
                     $('#editProjectModal .team-card').removeClass('selected');
                     
-                    // Set selected manager - need to find the emp_id for this manager
-                    // We'll need to get the emp_id from the manager's user_id
-                    $.ajax({
-                        url: 'ajax/get_manager_emp_id.php',
-                        method: 'POST',
-                        data: { user_id: project.manager_id },
-                        success: function(response) {
-                            try {
-                                const data = JSON.parse(response);
-                                if (data.emp_id) {
-                                    const managerCard = $(`#editProjectModal .manager-card[data-value="${data.emp_id}"]`);
-                                    if (managerCard.length) {
-                                        managerCard.addClass('selected');
-                                        $('#edit_selected_manager_id').val(data.emp_id);
-                                    }
-                                }
-                            } catch (e) {
-                                console.error('Error parsing manager data:', e);
-                            }
-                        },
-                        error: function() {
-                            console.error('Error fetching manager emp_id');
+                    // Set selected manager by emp_id
+                    if (project.manager_id) {
+                        const managerCard = $(`#editProjectModal .manager-card[data-value="${project.manager_id}"]`);
+                        if (managerCard.length) {
+                            managerCard.addClass('selected');
+                            $('#edit_selected_manager_id').val(project.manager_id);
                         }
-                    });
+                    }
                     
                     // Set selected team members
                     if (project.team_members) {
@@ -2621,10 +2609,15 @@ try {
                 // Form validation for both modals
                 $('#addProjectModal form, #editProjectModal form').on('submit', function(e) {
                     const modalId = '#' + $(this).closest('.modal').attr('id');
-                    const startDate = new Date($(this).find('input[name="start_date"]').val());
-                    const endDate = new Date($(this).find('input[name="end_date"]').val());
-                    
-                    if (endDate < startDate) {
+                    const startDateVal = $(this).find('input[name="start_date"]').val();
+                    const endDateVal = $(this).find('input[name="end_date"]').val();
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    if (startDateVal < todayStr) {
+                        e.preventDefault();
+                        alert('Start date cannot be before today');
+                        return false;
+                    }
+                    if (endDateVal < startDateVal) {
                         e.preventDefault();
                         alert('End date cannot be before start date');
                         return false;

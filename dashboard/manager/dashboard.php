@@ -20,6 +20,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $manager = $stmt->fetch();
++$manager_emp_id = $manager['emp_id'];
 
 // Get team size
 $stmt = $pdo->prepare("
@@ -36,7 +37,7 @@ $stmt = $pdo->prepare("
     FROM projects 
     WHERE manager_id = ? AND status = 'in_progress'
 ");
-$stmt->execute([$manager['user_id']]);
+$stmt->execute([$manager_emp_id]);
 $active_projects = $stmt->fetch()['active_projects'];
 
 // Get pending leave requests
@@ -108,7 +109,7 @@ $stmt = $pdo->prepare("
     ORDER BY p.created_at DESC
     LIMIT 5
 ");
-$stmt->execute([$_SESSION['user_id']]);
+$stmt->execute([$manager_emp_id]);
 $recent_projects = $stmt->fetchAll();
 
 // Handle profile update and password change from topbar modals
