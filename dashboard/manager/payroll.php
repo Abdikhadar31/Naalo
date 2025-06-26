@@ -421,16 +421,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="main-content">
         <?php include 'includes/topbar.php'; ?>
 
-        <!-- Page Header -->
-        <div class="dashboard-header" style="margin-top: 32px; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1 class="mb-0"><i class=""></i>My Payroll</h1>
-                <!-- <button class="btn btn-primary" onclick="window.print()">
-                    <i class="fas fa-print"></i> Print Payslip
-                </button> -->
-            </div>
-        </div>
-
         <!-- Page Content -->
         <div class="container-fluid">
             <?php if ($error): ?>
