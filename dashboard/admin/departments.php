@@ -25,6 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $stmt = $pdo->prepare("INSERT INTO departments (dept_name, dept_head) VALUES (?, ?)");
                     $stmt->execute([$_POST['dept_name'], $_POST['dept_head']]);
+                    $new_dept_id = $pdo->lastInsertId();
+                    // Also update the manager's dept_id in employees table
+                    if (!empty($_POST['dept_head'])) {
+                        $stmt = $pdo->prepare("UPDATE employees SET dept_id = ? WHERE user_id = ?");
+                        $stmt->execute([$new_dept_id, $_POST['dept_head']]);
+                    }
                     $success = "Department added successfully!";
                 } catch (PDOException $e) {
                     $error = "Error adding department: " . $e->getMessage();
@@ -43,6 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $stmt = $pdo->prepare("UPDATE departments SET dept_name = ?, dept_head = ? WHERE dept_id = ?");
                     $stmt->execute([$_POST['dept_name'], $_POST['dept_head'], $_POST['dept_id']]);
+                    // Also update the manager's dept_id in employees table
+                    if (!empty($_POST['dept_head'])) {
+                        $stmt = $pdo->prepare("UPDATE employees SET dept_id = ? WHERE user_id = ?");
+                        $stmt->execute([$_POST['dept_id'], $_POST['dept_head']]);
+                    }
                     $success = "Department updated successfully!";
                 } catch (PDOException $e) {
                     $error = "Error updating department: " . $e->getMessage();
@@ -573,34 +584,6 @@ try {
                             <label class="form-label">Department Head</label>
                             <select class="form-select" name="dept_head" id="edit_dept_head">
                                 <option value="">Select Department Head</option>
-                                <?php
-                                // Get current head for this department
-                                $current_head_id = isset($_POST['dept_head']) ? $_POST['dept_head'] : null;
-                                // Add current head if not in unassigned_managers
-                                $edit_heads = $unassigned_managers;
-                                if (isset($dept) && !empty($dept['dept_head'])) {
-                                    $already_listed = false;
-                                    foreach ($unassigned_managers as $m) {
-                                        if ($m['user_id'] == $dept['dept_head']) {
-                                            $already_listed = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!$already_listed) {
-                                        // Fetch current head's name
-                                        $stmt = $pdo->prepare("SELECT u.user_id, CONCAT(e.first_name, ' ', e.last_name) as full_name FROM users u JOIN employees e ON u.user_id = e.user_id WHERE u.user_id = ?");
-                                        $stmt->execute([$dept['dept_head']]);
-                                        $current_head = $stmt->fetch();
-                                        if ($current_head) {
-                                            $edit_heads[] = $current_head;
-                                        }
-                                    }
-                                }
-                                foreach ($edit_heads as $manager): ?>
-                                    <option value="<?php echo $manager['user_id']; ?>">
-                                        <?php echo htmlspecialchars($manager['full_name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -666,6 +649,58 @@ try {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
     
     <script>
+        // Preload all managers and unassigned managers for JS
+        const allManagers = <?php
+            // Fetch all managers (user_id, full_name)
+            $stmt = $pdo->query("SELECT u.user_id, CONCAT(e.first_name, ' ', e.last_name) as full_name FROM users u JOIN employees e ON u.user_id = e.user_id WHERE u.role = 'manager' AND u.status = 'active' ORDER BY e.first_name");
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        ?>;
+        const unassignedManagers = <?php echo json_encode($unassigned_managers); ?>;
+
+        // Helper: get manager by user_id
+        function getManagerById(userId) {
+            return allManagers.find(m => m.user_id == userId);
+        }
+
+        // Edit Department
+        function editDepartment(dept) {
+            document.getElementById('edit_dept_id').value = dept.dept_id;
+            document.getElementById('edit_dept_name').value = dept.dept_name;
+            // Build Department Head dropdown dynamically
+            const select = document.getElementById('edit_dept_head');
+            select.innerHTML = '<option value="">Select Department Head</option>';
+            // Add all unassigned managers
+            unassignedManagers.forEach(function(manager) {
+                const opt = document.createElement('option');
+                opt.value = manager.user_id;
+                opt.textContent = manager.full_name;
+                select.appendChild(opt);
+            });
+            // Add current head if not already in unassigned
+            if (dept.dept_head) {
+                let alreadyListed = unassignedManagers.some(m => m.user_id == dept.dept_head);
+                if (!alreadyListed) {
+                    const currentHead = getManagerById(dept.dept_head);
+                    if (currentHead) {
+                        const opt = document.createElement('option');
+                        opt.value = currentHead.user_id;
+                        opt.textContent = currentHead.full_name;
+                        select.appendChild(opt);
+                    }
+                }
+                select.value = dept.dept_head;
+            } else {
+                select.value = '';
+            }
+            new bootstrap.Modal(document.getElementById('editDeptModal')).show();
+        }
+
+        // Delete Department
+        function deleteDepartment(deptId) {
+            document.getElementById('delete_dept_id').value = deptId;
+            new bootstrap.Modal(document.getElementById('deleteDeptModal')).show();
+        }
+
         // Initialize DataTable
         $(document).ready(function() {
             $('#departmentsTable').DataTable();
@@ -682,20 +717,6 @@ try {
             document.getElementById('main-content').classList.toggle('expanded');
             document.querySelector('.topbar').classList.toggle('expanded');
         });
-
-        // Edit Department
-        function editDepartment(dept) {
-            document.getElementById('edit_dept_id').value = dept.dept_id;
-            document.getElementById('edit_dept_name').value = dept.dept_name;
-            document.getElementById('edit_dept_head').value = dept.dept_head || '';
-            new bootstrap.Modal(document.getElementById('editDeptModal')).show();
-        }
-
-        // Delete Department
-        function deleteDepartment(deptId) {
-            document.getElementById('delete_dept_id').value = deptId;
-            new bootstrap.Modal(document.getElementById('deleteDeptModal')).show();
-        }
     </script>
 </body>
 </html> 

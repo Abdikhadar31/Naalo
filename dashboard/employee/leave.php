@@ -116,35 +116,44 @@ $emp_id = $emp['emp_id'];
 
 // --- Handle Actions ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        $pdo->beginTransaction();
-        if (isset($_POST['action'])) {
-            switch ($_POST['action']) {
-                case 'apply_leave':
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'apply_leave':
+                $leave_type_id = $_POST['leave_type_id'];
+                $start_date = $_POST['start_date'];
+                $end_date = $_POST['end_date'];
+                $reason = $_POST['reason'];
+                $validation_result = validateLeaveRequest($pdo, $emp_id, $leave_type_id, $start_date, $end_date);
+                if ($validation_result !== true) {
+                    $error = $validation_result;
+                    break;
+                }
+                try {
+                    $pdo->beginTransaction();
                     $stmt = $pdo->prepare("INSERT INTO leave_requests (emp_id, requested_by_role, leave_type_id, start_date, end_date, reason, status, created_at) VALUES (?, 'employee', ?, ?, ?, ?, 'pending', NOW())");
                     $stmt->execute([
                         $emp_id,
-                        $_POST['leave_type_id'],
-                        $_POST['start_date'],
-                        $_POST['end_date'],
-                        $_POST['reason']
+                        $leave_type_id,
+                        $start_date,
+                        $end_date,
+                        $reason
                     ]);
+                    $pdo->commit();
                     $success = "Leave request submitted.";
-                    break;
-                case 'cancel_leave':
-                    $stmt = $pdo->prepare("UPDATE leave_requests SET status = 'cancelled' WHERE leave_id = ? AND emp_id = ? AND status = 'pending'");
-                    $stmt->execute([
-                        $_POST['leave_id'],
-                        $emp_id
-                    ]);
-                    $success = "Leave request cancelled.";
-                    break;
-            }
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    $error = "Error: " . $e->getMessage();
+                }
+                break;
+            case 'cancel_leave':
+                $stmt = $pdo->prepare("UPDATE leave_requests SET status = 'cancelled' WHERE leave_id = ? AND emp_id = ? AND status = 'pending'");
+                $stmt->execute([
+                    $_POST['leave_id'],
+                    $emp_id
+                ]);
+                $success = "Leave request cancelled.";
+                break;
         }
-        $pdo->commit();
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $error = "Error: " . $e->getMessage();
     }
 }
 
@@ -152,6 +161,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Leave Types
 $stmt = $pdo->query("SELECT * FROM leave_types ORDER BY leave_type_id ASC");
 $leave_types = $stmt->fetchAll();
+
+// Employee's own leave stats (summary)
+$stmt = $pdo->prepare("SELECT lt.leave_type_name, lt.default_days as total_leaves, COALESCE(elb.used_leaves, 0) as used_leaves FROM leave_types lt LEFT JOIN employee_leave_balance elb ON lt.leave_type_id = elb.leave_type_id AND elb.emp_id = ? AND elb.year = YEAR(CURRENT_DATE)");
+$stmt->execute([$emp_id]);
+$leave_stats = $stmt->fetchAll();
 
 // Employee's own leave requests
 $stmt = $pdo->prepare("SELECT lr.*, lt.leave_type_name, lr.admin_remarks FROM leave_requests lr JOIN leave_types lt ON lr.leave_type_id = lt.leave_type_id WHERE lr.emp_id = ? AND lr.requested_by_role = 'employee' ORDER BY lr.created_at DESC");
@@ -335,6 +349,33 @@ $rejected = count(array_filter($my_leaves, function($r) { return $r['status'] ==
                                         <?php endif; ?>
                                     </td>
                                 </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header"><strong>My Leave Balance</strong></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Leave Type</th>
+                                <th>Allowed</th>
+                                <th>Used</th>
+                                <th>Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($leave_stats as $stat): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($stat['leave_type_name']); ?></td>
+                                <td><?php echo (int)$stat['total_leaves']; ?></td>
+                                <td><?php echo (int)$stat['used_leaves']; ?></td>
+                                <td><?php echo max(0, (int)$stat['total_leaves'] - (int)$stat['used_leaves']); ?></td>
+                            </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>

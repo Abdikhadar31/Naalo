@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Africa/mogadishu'); // Set timezone for correct check-in/out time
 require_once '../../config/database.php';
 require_once '../../includes/attendance_functions.php';
 require_once 'includes/functions.php';
@@ -202,6 +203,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Error: " . $e->getMessage();
     }
 }
+
+// For each attendance record, check if the employee is on approved leave for that date
+function isOnLeave($pdo, $emp_id, $date) {
+    $stmt = $pdo->prepare("SELECT 1 FROM leave_requests WHERE emp_id = ? AND status = 'approved' AND ? BETWEEN start_date AND end_date");
+    $stmt->execute([$emp_id, $date]);
+    return $stmt->fetch() ? true : false;
+}
+
+// --- Holiday Calendar ---
+$holidays = [
+    // Format: 'YYYY-MM-DD' => 'Holiday Name',
+    '2024-01-01' => 'New Year\'s Day',
+    '2024-04-10' => 'Eid al-Fitr',
+    '2024-05-01' => 'Labour Day',
+    '2024-06-17' => 'Eid al-Adha',
+    // Add more as needed
+];
 ?>
 
 <!DOCTYPE html>
@@ -495,9 +513,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <td><?php echo $record['time_out'] ? date('H:i:s', strtotime($record['time_out'])) : '-'; ?></td>
                                             <td><?php echo $record['total_hours'] ?? '-'; ?></td>
                                             <td>
-                                                <span class="status-badge bg-<?php echo getStatusBadgeClass($record['status'] ?? ''); ?>">
-                                                    <?php echo ucfirst($record['status'] ?? ''); ?>
-                                                </span>
+                                                <?php if (isOnLeave($pdo, $record['emp_id'], $record['attendance_date'])): ?>
+                                                    <span class="status-badge bg-secondary">On Leave</span>
+                                                <?php elseif (isset($holidays[date('Y-m-d', strtotime($record['attendance_date']))])): ?>
+                                                    <span class="status-badge bg-info">Holiday</span>
+                                                <?php else: ?>
+                                                    <span class="status-badge bg-<?php echo getStatusBadgeClass($record['status'] ?? ''); ?>">
+                                                        <?php echo ucfirst($record['status'] ?? ''); ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($record['notes'] ?? ''); ?></td>
                                         </tr>

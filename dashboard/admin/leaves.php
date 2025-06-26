@@ -164,6 +164,11 @@ $department = isset($_GET['department']) ? $_GET['department'] : '';
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-01');
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-t');
 
+// Get leave summary filter parameters
+$summary_role = isset($_GET['summary_role']) ? $_GET['summary_role'] : '';
+$summary_dept = isset($_GET['summary_dept']) ? $_GET['summary_dept'] : '';
+$summary_search = isset($_GET['summary_search']) ? trim($_GET['summary_search']) : '';
+
 // Fetch leave requests with employee details
 try {
     $query = "
@@ -206,6 +211,31 @@ try {
     // Fetch departments for filter
     $stmt = $pdo->query("SELECT dept_id, dept_name FROM departments ORDER BY dept_name");
     $departments = $stmt->fetchAll();
+
+    // Fetch leave summary for all employees with filters
+    $admin_leave_summary = [];
+    if ($summary_role || $summary_dept || $summary_search !== '') {
+        $summary_query = "SELECT e.emp_id, CONCAT(e.first_name, ' ', e.last_name) as employee_name, lt.leave_type_name, lt.default_days as allowed, COALESCE(elb.used_leaves, 0) as used, d.dept_name, u.role FROM employees e JOIN users u ON e.user_id = u.user_id AND u.role IN ('employee', 'manager') LEFT JOIN departments d ON e.dept_id = d.dept_id CROSS JOIN leave_types lt LEFT JOIN employee_leave_balance elb ON elb.emp_id = e.emp_id AND elb.leave_type_id = lt.leave_type_id AND elb.year = YEAR(CURRENT_DATE) WHERE 1=1";
+        $summary_params = [];
+        if ($summary_role) {
+            $summary_query .= " AND u.role = ?";
+            $summary_params[] = $summary_role;
+        }
+        if ($summary_dept) {
+            $summary_query .= " AND e.dept_id = ?";
+            $summary_params[] = $summary_dept;
+        }
+        if ($summary_search !== '') {
+            $summary_query .= " AND (e.first_name LIKE ? OR e.last_name LIKE ? OR CONCAT(e.first_name, ' ', e.last_name) LIKE ?)";
+            $summary_params[] = "%$summary_search%";
+            $summary_params[] = "%$summary_search%";
+            $summary_params[] = "%$summary_search%";
+        }
+        $summary_query .= " ORDER BY employee_name, lt.leave_type_name";
+        $stmt = $pdo->prepare($summary_query);
+        $stmt->execute($summary_params);
+        $admin_leave_summary = $stmt->fetchAll();
+    }
 
 } catch (PDOException $e) {
     $error = "Error fetching data: " . $e->getMessage();
@@ -355,6 +385,70 @@ try {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header"><strong>All Employees Leave Balance (Current Year)</strong></div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3 mb-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" name="summary_role">
+                                <option value="">All Roles</option>
+                                <option value="employee" <?php if ($summary_role === 'employee') echo 'selected'; ?>>Employee</option>
+                                <option value="manager" <?php if ($summary_role === 'manager') echo 'selected'; ?>>Manager</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" name="summary_dept">
+                                <option value="">All Departments</option>
+                                <?php foreach ($departments as $dept): ?>
+                                    <option value="<?php echo $dept['dept_id']; ?>" <?php if ($summary_dept == $dept['dept_id']) echo 'selected'; ?>><?php echo htmlspecialchars($dept['dept_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Search Employee</label>
+                            <input type="text" class="form-control" name="summary_search" value="<?php echo htmlspecialchars($summary_search); ?>" placeholder="Enter employee name...">
+                        </div>
+                        <div class="col-md-2 align-self-end">
+                            <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                        </div>
+                    </form>
+                    <?php if (!empty($admin_leave_summary)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Role</th>
+                                    <th>Department</th>
+                                    <th>Leave Type</th>
+                                    <th>Allowed</th>
+                                    <th>Used</th>
+                                    <th>Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($admin_leave_summary as $row): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($row['employee_name']); ?></td>
+                                    <td><?php echo htmlspecialchars(ucfirst($row['role'])); ?></td>
+                                    <td><?php echo htmlspecialchars($row['dept_name']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['leave_type_name']); ?></td>
+                                    <td><?php echo (int)$row['allowed']; ?></td>
+                                    <td><?php echo (int)$row['used']; ?></td>
+                                    <td><?php echo max(0, (int)$row['allowed'] - (int)$row['used']); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php else: ?>
+                    <div class="text-muted">Apply a filter to see leave balances.</div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

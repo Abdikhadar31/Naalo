@@ -2,6 +2,8 @@
 // dashboard/manager/includes/functions.php
 // Utility and helper functions for manager pages
 
+require_once __DIR__ . '/../../employee/includes/functions.php';
+
 // Example: Sanitize input
 function manager_sanitize($input) {
     return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');

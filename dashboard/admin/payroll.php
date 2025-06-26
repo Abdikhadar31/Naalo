@@ -612,6 +612,9 @@ try {
                     <button class="btn btn-primary fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(78,115,223,0.08);" data-bs-toggle="modal" data-bs-target="#payrollModal">
                         <i class="fas fa-plus me-2"></i> CREATE PAYROLL
                     </button>
+                    <button class="btn btn-success fw-bold px-4 py-2 d-flex align-items-center ms-2" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(40,167,69,0.08);" data-bs-toggle="modal" data-bs-target="#bulkPayrollModal">
+                        <i class="fas fa-users me-2"></i> BULK PAYROLL
+                    </button>
                 </div>
             </div>
 
@@ -826,7 +829,7 @@ try {
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Pay Period</label>
-                                <input type="month" class="form-control" name="pay_period" required>
+                                <input type="month" class="form-control" name="pay_period" id="pay_period" required min="<?php echo date('Y-m'); ?>" max="<?php echo date('Y-m'); ?>">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Basic Salary</label>
@@ -901,6 +904,47 @@ try {
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success">Export</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Payroll Modal -->
+    <div class="modal fade" id="bulkPayrollModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk Payroll Creation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="bulkPayrollForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="bulk_create_payroll">
+                        <div class="mb-3">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" name="department" id="bulk_department" required>
+                                <option value="">Select Department</option>
+                                <?php foreach ($departments as $dept): ?>
+                                    <option value="<?php echo $dept['dept_id']; ?>">
+                                        <?php echo htmlspecialchars($dept['dept_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Pay Period</label>
+                            <input type="month" class="form-control" name="pay_period" id="bulk_pay_period" required min="<?php echo date('Y-m'); ?>" max="<?php echo date('Y-m'); ?>">
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Payroll will be created for all active employees and managers in the selected department for the selected period.<br>
+                            Bonus will be calculated based on attendance.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Process Bulk Payroll</button>
                     </div>
                 </form>
             </div>
@@ -1221,6 +1265,37 @@ try {
                     error: function(xhr, status, error) {
                         console.error('Error creating payroll:', error);
                         alert('Error creating payroll. Please try again.');
+                    }
+                });
+            });
+
+            // Handle bulk payroll form submission
+            $('#bulkPayrollForm').on('submit', function(e) {
+                e.preventDefault();
+                if (!$('#bulk_department').val() || !$('input[name="pay_period"]', this).val()) {
+                    alert('Please select department and pay period');
+                    return;
+                }
+                $.ajax({
+                    url: 'ajax/bulk_create_payroll.php',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        try {
+                            const result = JSON.parse(response);
+                            if (result.success) {
+                                $('#bulkPayrollModal').modal('hide');
+                                alert(result.message);
+                                window.location.reload();
+                            } else {
+                                alert('Error: ' + result.error);
+                            }
+                        } catch (e) {
+                            alert('Error processing bulk payroll. Please try again.');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Error processing bulk payroll. Please try again.');
                     }
                 });
             });

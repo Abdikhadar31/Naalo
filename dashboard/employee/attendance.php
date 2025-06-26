@@ -117,6 +117,16 @@ $employee = $stmt->fetch();
 $success_message = '';
 $error_message = '';
 
+// --- Holiday Calendar ---
+$holidays = [
+    '2024-01-01' => 'New Year\'s Day',
+    '2024-04-10' => 'Eid al-Fitr',
+    '2024-05-01' => 'Labour Day',
+    '2024-06-17' => 'Eid al-Adha',
+    
+    // Add more as needed
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['check_in'])) {
         $date = date('Y-m-d');
@@ -125,49 +135,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $device_info = $_SERVER['HTTP_USER_AGENT'];
         
         try {
-            // Check if attendance already marked for today
-            $stmt = $pdo->prepare("
-                SELECT * FROM attendance 
-                WHERE emp_id = ? AND attendance_date = ?
-            ");
-            $stmt->execute([$employee['emp_id'], $date]);
-            $existing_attendance = $stmt->fetch();
-            
-            if ($existing_attendance) {
-                $error_message = "You have already checked in today!";
+            // Check if today is a holiday
+            if (isset($holidays[$date])) {
+                $error_message = "Today is a holiday: " . $holidays[$date] . ". Attendance is not required.";
             } else {
-                // Get attendance policy
-                $stmt = $pdo->query("SELECT * FROM attendance_policy ORDER BY created_at DESC LIMIT 1");
-                $policy = $stmt->fetch();
-                
-                // Calculate status based on time
-                $status = 'present';
-                if (strtotime($time) > strtotime($policy['grace_period'])) {
-                    $status = 'late';
+                // Check if employee is on approved leave today
+                $on_leave_today = false;
+                $stmt = $pdo->prepare("SELECT * FROM leave_requests WHERE emp_id = ? AND status = 'approved' AND ? BETWEEN start_date AND end_date");
+                $stmt->execute([$employee['emp_id'], $date]);
+                if ($stmt->fetch()) {
+                    $on_leave_today = true;
                 }
                 
-                // Insert new attendance
+                // Check if attendance already marked for today
                 $stmt = $pdo->prepare("
-                    INSERT INTO attendance (emp_id, attendance_date, time_in, status, ip_address, device_info)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $employee['emp_id'], 
-                    $date, 
-                    $time, 
-                    $status,
-                    $ip_address,
-                    $device_info
-                ]);
-                
-                // Create notification
-                $stmt = $pdo->prepare("
-                    INSERT INTO attendance_notifications (emp_id, notification_type, notification_date)
-                    VALUES (?, 'check_in', ?)
+                    SELECT * FROM attendance 
+                    WHERE emp_id = ? AND attendance_date = ?
                 ");
                 $stmt->execute([$employee['emp_id'], $date]);
+                $existing_attendance = $stmt->fetch();
                 
-                $success_message = "Check-in successful!";
+                if ($on_leave_today) {
+                    $error_message = "You are on approved leave today. Attendance is auto-marked as 'On Leave'.";
+                } elseif ($existing_attendance) {
+                    $error_message = "You have already checked in today!";
+                } else {
+                    // Get attendance policy
+                    $stmt = $pdo->query("SELECT * FROM attendance_policy ORDER BY created_at DESC LIMIT 1");
+                    $policy = $stmt->fetch();
+                    
+                    // Calculate status based on time
+                    $status = 'present';
+                    if (strtotime($time) > strtotime($policy['grace_period'])) {
+                        $status = 'late';
+                    }
+                    
+                    // Insert new attendance
+                    $stmt = $pdo->prepare("
+                        INSERT INTO attendance (emp_id, attendance_date, time_in, status, ip_address, device_info)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $employee['emp_id'], 
+                        $date, 
+                        $time, 
+                        $status,
+                        $ip_address,
+                        $device_info
+                    ]);
+                    
+                    // Create notification
+                    $stmt = $pdo->prepare("
+                        INSERT INTO attendance_notifications (emp_id, notification_type, notification_date)
+                        VALUES (?, 'check_in', ?)
+                    ");
+                    $stmt->execute([$employee['emp_id'], $date]);
+                    
+                    $success_message = "Check-in successful!";
+                }
             }
         } catch (PDOException $e) {
             $error_message = "Error checking in: " . $e->getMessage();
@@ -179,56 +204,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $device_info = $_SERVER['HTTP_USER_AGENT'];
         
         try {
-            // Check if attendance exists for today
-            $stmt = $pdo->prepare("
-                SELECT * FROM attendance 
-                WHERE emp_id = ? AND attendance_date = ?
-            ");
-            $stmt->execute([$employee['emp_id'], $date]);
-            $existing_attendance = $stmt->fetch();
-            
-            if ($existing_attendance) {
-                // Calculate total hours worked
-                $time_in = strtotime($existing_attendance['time_in']);
-                $time_out = strtotime($time);
-                $total_hours = ($time_out - $time_in) / 3600;
-                
-                // Get attendance policy
-                $stmt = $pdo->query("SELECT * FROM attendance_policy ORDER BY created_at DESC LIMIT 1");
-                $policy = $stmt->fetch();
-                
-                // Update status based on total hours
-                $status = $existing_attendance['status'];
-                if ($total_hours < $policy['min_hours_half_day']) {
-                    $status = 'half-day';
+            // Check if today is a holiday
+            if (isset($holidays[$date])) {
+                $error_message = "Today is a holiday: " . $holidays[$date] . ". Attendance is not required.";
+            } else {
+                // Check if employee is on approved leave today
+                $on_leave_today = false;
+                $stmt = $pdo->prepare("SELECT * FROM leave_requests WHERE emp_id = ? AND status = 'approved' AND ? BETWEEN start_date AND end_date");
+                $stmt->execute([$employee['emp_id'], $date]);
+                if ($stmt->fetch()) {
+                    $on_leave_today = true;
                 }
                 
-                // Update existing attendance with time out
+                // Check if attendance exists for today
                 $stmt = $pdo->prepare("
-                    UPDATE attendance 
-                    SET time_out = ?, total_hours = ?, auto_status = ?, ip_address = ?, device_info = ?
+                    SELECT * FROM attendance 
                     WHERE emp_id = ? AND attendance_date = ?
                 ");
-                $stmt->execute([
-                    $time,
-                    $total_hours,
-                    $status,
-                    $ip_address,
-                    $device_info,
-                    $employee['emp_id'],
-                    $date
-                ]);
-                
-                // Create notification
-                $stmt = $pdo->prepare("
-                    INSERT INTO attendance_notifications (emp_id, notification_type, notification_date)
-                    VALUES (?, 'check_out', ?)
-                ");
                 $stmt->execute([$employee['emp_id'], $date]);
+                $existing_attendance = $stmt->fetch();
                 
-                $success_message = "Check-out successful!";
-            } else {
-                $error_message = "You need to check in first!";
+                if ($on_leave_today) {
+                    $error_message = "You are on approved leave today. Attendance is auto-marked as 'On Leave'.";
+                } elseif ($existing_attendance) {
+                    // Calculate total hours worked
+                    $time_in = strtotime($existing_attendance['time_in']);
+                    $time_out = strtotime($time);
+                    $total_hours = ($time_out - $time_in) / 3600;
+                    
+                    // Get attendance policy
+                    $stmt = $pdo->query("SELECT * FROM attendance_policy ORDER BY created_at DESC LIMIT 1");
+                    $policy = $stmt->fetch();
+                    
+                    // Update status based on total hours
+                    $status = $existing_attendance['status'];
+                    if ($total_hours < $policy['min_hours_half_day']) {
+                        $status = 'half-day';
+                    }
+                    
+                    // Update existing attendance with time out
+                    $stmt = $pdo->prepare("
+                        UPDATE attendance 
+                        SET time_out = ?, total_hours = ?, auto_status = ?, ip_address = ?, device_info = ?
+                        WHERE emp_id = ? AND attendance_date = ?
+                    ");
+                    $stmt->execute([
+                        $time,
+                        $total_hours,
+                        $status,
+                        $ip_address,
+                        $device_info,
+                        $employee['emp_id'],
+                        $date
+                    ]);
+                    
+                    // Create notification
+                    $stmt = $pdo->prepare("
+                        INSERT INTO attendance_notifications (emp_id, notification_type, notification_date)
+                        VALUES (?, 'check_out', ?)
+                    ");
+                    $stmt->execute([$employee['emp_id'], $date]);
+                    
+                    $success_message = "Check-out successful!";
+                } else {
+                    $error_message = "You need to check in first!";
+                }
             }
         } catch (PDOException $e) {
             $error_message = "Error checking out: " . $e->getMessage();

@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require_once '../../config/database.php';
 require_once '../admin/includes/functions.php';
@@ -569,7 +573,6 @@ try {
         body {
             font-family: 'Nunito', sans-serif;
             background-color: #f8f9fc;
-            display: none !important;
         }
         .main-content > .container-fluid > .row, .main-content > .container-fluid > .card {
             display: none !important;
@@ -731,7 +734,7 @@ try {
             <!-- Current Payslip -->
             <?php if ($payroll): ?>
                 <div class="payslip-wrapper">
-                    <div class="payslip-header-print">
+                    <!-- <div class="payslip-header-print">
                         <div class="logo">
                             <?php if (file_exists($logo_path)): ?>
                                 <img src="<?php echo $logo_path; ?>" alt="Company Logo">
@@ -742,7 +745,7 @@ try {
                             <p><?php echo htmlspecialchars($company_address); ?></p>
                             <p><?php echo htmlspecialchars($company_email); ?> | <?php echo htmlspecialchars($company_phone); ?></p>
                         </div>
-                    </div>
+                    </div> -->
                     <div class="fancy-payslip p-4">
                         <div class="fancy-payslip-header">
                             <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>

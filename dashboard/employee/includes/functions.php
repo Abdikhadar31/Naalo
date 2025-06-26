@@ -120,4 +120,51 @@ function getPendingLeaveCount($emp_id) {
     $result = $stmt->fetch();
     
     return $result['count'];
+}
+
+/**
+ * Centralized leave request validation
+ * @param PDO $pdo
+ * @param int $emp_id
+ * @param int $leave_type_id
+ * @param string $start_date (Y-m-d)
+ * @param string $end_date (Y-m-d)
+ * @return true|string Returns true if valid, or error message string
+ */
+function validateLeaveRequest($pdo, $emp_id, $leave_type_id, $start_date, $end_date) {
+    $today = new DateTime();
+    $start = new DateTime($start_date);
+    $end = new DateTime($end_date);
+    if ($start < $today->setTime(0,0,0)) {
+        return "You cannot apply for leave starting in the past.";
+    }
+    // Overlap with approved leave
+    $stmt = $pdo->prepare("SELECT * FROM leave_requests WHERE emp_id = ? AND status = 'approved' AND (start_date <= ? AND end_date >= ?)");
+    $stmt->execute([$emp_id, $end_date, $start_date]);
+    if ($stmt->fetch()) {
+        return "You already have an approved leave during this period. You cannot apply for another leave until your current approved leave ends.";
+    }
+    // Calculate requested days (inclusive)
+    $interval = $start->diff($end);
+    $requested_days = $interval->days + 1;
+    // Get allowed days for this leave type
+    $stmt = $pdo->prepare("SELECT default_days FROM leave_types WHERE leave_type_id = ?");
+    $stmt->execute([$leave_type_id]);
+    $leave_type = $stmt->fetch();
+    $allowed_days = $leave_type ? (int)$leave_type['default_days'] : 0;
+    // Get used days for this leave type this year
+    $stmt = $pdo->prepare("SELECT used_leaves FROM employee_leave_balance WHERE emp_id = ? AND leave_type_id = ? AND year = YEAR(CURRENT_DATE)");
+    $stmt->execute([$emp_id, $leave_type_id]);
+    $balance = $stmt->fetch();
+    $used_days = $balance ? (int)$balance['used_leaves'] : 0;
+    // Also count pending requests for this type this year
+    $stmt = $pdo->prepare("SELECT SUM(DATEDIFF(end_date, start_date) + 1) as pending_days FROM leave_requests WHERE emp_id = ? AND leave_type_id = ? AND status = 'pending' AND YEAR(start_date) = YEAR(CURRENT_DATE)");
+    $stmt->execute([$emp_id, $leave_type_id]);
+    $pending = $stmt->fetch();
+    $pending_days = $pending && $pending['pending_days'] ? (int)$pending['pending_days'] : 0;
+    $total_used = $used_days + $pending_days;
+    if ($requested_days + $total_used > $allowed_days) {
+        return "You cannot request more than your allowed leave days (" . $allowed_days . ") for this leave type. You have already used or requested " . $total_used . " days.";
+    }
+    return true;
 } 

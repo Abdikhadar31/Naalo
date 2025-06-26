@@ -124,6 +124,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $device_info = $_SERVER['HTTP_USER_AGENT'];
                 
                 try {
+                    // Check if manager is on approved leave today
+                    $on_leave_today = false;
+                    $stmt = $pdo->prepare("SELECT * FROM leave_requests WHERE emp_id = ? AND status = 'approved' AND ? BETWEEN start_date AND end_date");
+                    $stmt->execute([$manager['emp_id'], $date]);
+                    if ($stmt->fetch()) {
+                        $on_leave_today = true;
+                    }
+                    
                     // Check if attendance already marked for today
                     $stmt = $pdo->prepare("
                         SELECT * FROM attendance 
@@ -132,7 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$manager['emp_id'], $date]);
                     $existing_attendance = $stmt->fetch();
                     
-                    if ($existing_attendance) {
+                    if ($on_leave_today) {
+                        $error = "You are on approved leave today. Attendance is auto-marked as 'On Leave'.";
+                    } elseif ($existing_attendance) {
                         $error = "You have already checked in today!";
                     } else {
                         // Get attendance policy
@@ -473,6 +483,16 @@ $notifications = $stmt->fetchAll();
 // Get attendance policy
 $stmt = $pdo->query("SELECT * FROM attendance_policy ORDER BY created_at DESC LIMIT 1");
 $attendance_policy = $stmt->fetch();
+
+// --- Holiday Calendar ---
+$holidays = [
+    '2024-01-01' => 'New Year\'s Day',
+    '2024-04-10' => 'Eid al-Fitr',
+    '2024-05-01' => 'Labour Day',
+    '2024-06-17' => 'Eid al-Adha',
+    
+    // Add more as needed
+];
 
 ?>
 
