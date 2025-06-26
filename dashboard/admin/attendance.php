@@ -1,6 +1,6 @@
 <?php
 session_start();
-date_default_timezone_set('Africa/mogadishu'); // Set timezone for correct check-in/out time
+date_default_timezone_set('Africa/nairobi'); // Set timezone for correct check-in/out time
 require_once '../../config/database.php';
 require_once '../../includes/attendance_functions.php';
 require_once 'includes/functions.php';

@@ -15,6 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 try {
+                    // Validate basic salary
+                    if (!isset($_POST['basic_salary']) || floatval($_POST['basic_salary']) <= 0) {
+                        $error = "Basic salary must be greater than 0.";
+                        break;
+                    }
                     $pdo->beginTransaction();
 
                     // First create user account
@@ -48,6 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'edit':
                 try {
+                    // Validate basic salary
+                    if (!isset($_POST['basic_salary']) || floatval($_POST['basic_salary']) <= 0) {
+                        $error = "Basic salary must be greater than 0.";
+                        break;
+                    }
                     $pdo->beginTransaction();
 
                     // Update user account
@@ -692,14 +702,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
     
     <script>
-        // Initialize DataTable with role filter
+        // Initialize DataTable with department filter
         $(document).ready(function() {
             var table = $('#employeesTable').DataTable();
             
-            // Add role filter functionality
-            $('#roleFilter').on('change', function() {
-                var role = $(this).val();
-                table.column(4).search(role).draw();
+            // Add department filter functionality
+            $('#departmentFilter').on('change', function() {
+                var dept = $(this).find('option:selected').text();
+                if (dept === 'All Departments') {
+                    table.column(4).search('').draw();
+                } else {
+                    table.column(4).search('^' + dept + '$', true, false).draw();
+                }
             });
         });
 

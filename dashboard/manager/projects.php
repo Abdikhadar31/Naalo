@@ -18,11 +18,13 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $manager = $stmt->fetch();
+$manager_emp_id = $manager['emp_id'];
 
 // Handle project status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'update_status') {
         try {
+            // Only allow status update for projects managed by this manager
             $stmt = $pdo->prepare("
                 UPDATE projects 
                 SET status = ?, updated_at = NOW()
@@ -31,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([
                 $_POST['status'],
                 $_POST['project_id'],
-                $_SESSION['user_id']
+                $manager_emp_id
             ]);
 
             // Add status update notification for team members
@@ -71,7 +73,7 @@ try {
         WHERE p.manager_id = ?
     ";
     
-    $params = [$_SESSION['user_id']];
+    $params = [$manager_emp_id];
     
     // Apply filters
     if (isset($_GET['status']) && $_GET['status'] !== '') {
@@ -481,9 +483,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h1 class="fw-bold mb-1" style="font-size:2rem; color:#222;">Project Management</h1>
                     <div class="text-muted" style="font-size:1.1rem;">Manage all your projects and assignments</div>
                 </div>
-                <button class="btn btn-primary fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                    <i class="fas fa-plus me-2"></i> ADD NEW PROJECT
-                </button>
             </div>
         </div>
 

@@ -122,8 +122,8 @@ try {
                GROUP_CONCAT(DISTINCT CONCAT(e2.first_name, ' ', e2.last_name) SEPARATOR ', ') as team_members
         FROM project_assignments pa
         JOIN projects p ON pa.project_id = p.project_id
-        LEFT JOIN users u ON p.manager_id = u.user_id
-        LEFT JOIN employees m ON u.user_id = m.user_id
+        LEFT JOIN employees m ON p.manager_id = m.emp_id
+        LEFT JOIN users u ON m.user_id = u.user_id
         LEFT JOIN departments d ON m.dept_id = d.dept_id
         LEFT JOIN project_assignments pa2 ON p.project_id = pa2.project_id
         LEFT JOIN employees e2 ON pa2.emp_id = e2.emp_id
