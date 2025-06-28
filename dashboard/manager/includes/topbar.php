@@ -31,6 +31,16 @@ $manager = $stmt->fetch();
     </div>
 
     <div class="topbar-right">
+        <div class="manager-info" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; margin-right: 1.25rem;">
+            <span style="font-weight: 600; color: #2c3e50; line-height: 1; font-size: 1.08rem;">
+                <?php echo htmlspecialchars($manager['first_name'] . ' ' . $manager['last_name']); ?>
+            </span>
+            <span style="font-size: 0.95rem; color: #7b809a; line-height: 1;">
+                <?php echo htmlspecialchars(ucfirst($manager['role'])); ?>
+                <!-- <?php if (!empty($manager['department_name'])): ?> 
+                  <?php echo htmlspecialchars($manager['department_name']); ?><?php endif; ?> -->
+            </span>
+        </div>
         <div class="profile-dropdown">
             <button class="profile-btn" id="profileDropdownBtn" type="button">
                 <div class="profile-avatar">

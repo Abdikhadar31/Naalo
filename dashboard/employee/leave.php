@@ -183,7 +183,7 @@ $rejected = count(array_filter($my_leaves, function($r) { return $r['status'] ==
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Management - Employee Dashboard</title>
+    <title>Leave Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
@@ -338,7 +338,7 @@ $rejected = count(array_filter($my_leaves, function($r) { return $r['status'] ==
                                     <td><?php echo htmlspecialchars($leave['end_date']); ?></td>
                                     <td><span class="badge badge-status <?php echo $leave['status']; ?>"><?php echo ucfirst($leave['status']); ?></span></td>
                                     <td><?php echo htmlspecialchars($leave['reason']); ?></td>
-                                    <td><?php echo htmlspecialchars($leave['admin_remarks']); ?></td>
+                                    <td><?php echo htmlspecialchars($leave['admin_remarks'] ?? ''); ?></td>
                                     <td>
                                         <?php if ($leave['status'] === 'pending'): ?>
                                             <form method="POST" class="d-inline">

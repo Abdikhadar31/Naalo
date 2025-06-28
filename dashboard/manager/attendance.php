@@ -501,7 +501,7 @@ $holidays = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Management - Manager Dashboard</title>
+    <title>Attendance Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
@@ -977,16 +977,9 @@ $holidays = [
 <!-- Main Content -->
     <div class="main-content" style="margin-left:260px; padding-top:70px; min-height:100vh; background:#f8f9fc;">
         <!-- Page Header -->
-        <div class="page-header">
-            <div class="container-fluid">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h1 class="h3 mb-0 text-black">Attendance Management</h1>
-                    <!-- <div>
-                        <button class="btn btn-light" onclick="downloadReport()">
-                            <i class="fas fa-file-export me-2"></i>Generate Report
-                        </button>
-                    </div> -->
-                </div>
+        <div class="dashboard-header" style="margin-top: 32px; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0 text-black">Attendance Management</h1>
             </div>
         </div>
 
