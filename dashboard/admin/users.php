@@ -67,6 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($_POST['action']) {
             case 'add':
                 try {
+                    // Validate password length
+                    if (strlen($_POST['password']) < 6) {
+                        $error = "Password must be at least 6 characters long.";
+                        break;
+                    }
+                    
                     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
                     $stmt = $pdo->prepare("INSERT INTO users (username, password, email, role, status) VALUES (?, ?, ?, ?, ?)");
                     $stmt->execute([$_POST['username'], $password, $_POST['email'], $_POST['role'], $_POST['status']]);
@@ -78,6 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'edit':
                 try {
+                    // Validate password length if password is provided
+                    if (!empty($_POST['password']) && strlen($_POST['password']) < 6) {
+                        $error = "Password must be at least 6 characters long.";
+                        break;
+                    }
+                    
                     if (!empty($_POST['password'])) {
                         $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
                         $stmt = $pdo->prepare("UPDATE users SET username=?, email=?, role=?, status=?, password=? WHERE user_id=?");
@@ -118,6 +130,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = "Error deleting user: " . $e->getMessage();
                 }
                 break;
+                
+            case 'reset_password':
+                try {
+                    // Generate a random password
+                    $new_password = generateRandomPassword();
+                    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+                    
+                    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+                    $stmt->execute([$hashed_password, $_POST['user_id']]);
+                    
+                    $success = "Password reset successfully! New password: " . $new_password;
+                } catch (PDOException $e) {
+                    $error = "Error resetting password: " . $e->getMessage();
+                }
+                break;
         }
     }
 }
@@ -128,6 +155,16 @@ try {
     $users = $stmt->fetchAll();
 } catch (PDOException $e) {
     $error = "Error fetching users: " . $e->getMessage();
+}
+
+// Function to generate random password
+function generateRandomPassword($length = 8) {
+    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    $password = '';
+    for ($i = 0; $i < $length; $i++) {
+        $password .= $chars[rand(0, strlen($chars) - 1)];
+    }
+    return $password;
 }
 ?>
 
@@ -185,6 +222,7 @@ try {
                                 <th>Email</th>
                                 <th>Role</th>
                                 <th>Status</th>
+                                <th>Password</th>
                                 <th>Created At</th>
                                 <th>Actions</th>
                             </tr>
@@ -204,12 +242,21 @@ try {
                                         <?php echo ucfirst($user['status']); ?>
                                     </span>
                                 </td>
+                                <td>
+                                    <span class="badge bg-success">Set</span>
+                                    <button class="btn btn-sm btn-warning ms-2" onclick="resetPassword(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')" title="Reset Password">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                </td>
                                 <td><?php echo date('M d, Y H:i', strtotime($user['created_at'])); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary" onclick='editUser(<?php echo json_encode($user); ?>)'>
+                                    <button class="btn btn-sm btn-info me-1" onclick='viewUser(<?php echo json_encode($user); ?>)' title="View User Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-primary me-1" onclick='editUser(<?php echo json_encode($user); ?>)' title="Edit User">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteUser(<?php echo $user['user_id']; ?>)">
+                                    <button class="btn btn-sm btn-danger" onclick="deleteUser(<?php echo $user['user_id']; ?>)" title="Delete User">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
@@ -246,7 +293,13 @@ try {
 
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="add_password" required minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('add_password')">
+                                    <i class="fas fa-eye" id="add_password_icon"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Password must be at least 6 characters long</small>
                         </div>
 
                         <div class="mb-3">
@@ -301,7 +354,13 @@ try {
 
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" placeholder="Leave blank to keep current password">
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="edit_password" minlength="6" placeholder="Leave blank to keep current password">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('edit_password')">
+                                    <i class="fas fa-eye" id="edit_password_icon"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Password must be at least 6 characters long</small>
                         </div>
 
                         <div class="mb-3">
@@ -354,6 +413,64 @@ try {
         </div>
     </div>
 
+    <!-- Reset Password Modal -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="" method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="reset_password">
+                        <input type="hidden" name="user_id" id="reset_user_id">
+                        <p>Are you sure you want to reset the password for user: <strong id="reset_username"></strong>?</p>
+                        <p class="text-warning">This will generate a new random password and display it to you.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Reset Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View User Modal -->
+    <div class="modal fade" id="viewUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">User Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Username:</strong> <span id="view_username"></span></p>
+                            <p><strong>Email:</strong> <span id="view_email"></span></p>
+                            <p><strong>Role:</strong> <span id="view_role"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Status:</strong> <span id="view_status"></span></p>
+                            <p><strong>Created At:</strong> <span id="view_created_at"></span></p>
+                            <p><strong>Password:</strong> <span id="view_password_status"></span></p>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-warning" onclick="resetPasswordFromView()">
+                            <i class="fas fa-key me-2"></i>Reset Password
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
@@ -393,6 +510,63 @@ try {
         function deleteUser(userId) {
             document.getElementById('delete_user_id').value = userId;
             new bootstrap.Modal(document.getElementById('deleteUserModal')).show();
+        }
+        
+        // Reset Password
+        function resetPassword(userId, username) {
+            document.getElementById('reset_user_id').value = userId;
+            document.getElementById('reset_username').textContent = username;
+            new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+        }
+        
+        // View User
+        function viewUser(user) {
+            document.getElementById('view_username').textContent = user.username;
+            document.getElementById('view_email').textContent = user.email;
+            document.getElementById('view_role').innerHTML = '<span class="badge bg-' + getRoleBadgeClass(user.role) + '">' + user.role.charAt(0).toUpperCase() + user.role.slice(1) + '</span>';
+            document.getElementById('view_status').innerHTML = '<span class="badge bg-' + (user.status === 'active' ? 'success' : 'danger') + '">' + user.status.charAt(0).toUpperCase() + user.status.slice(1) + '</span>';
+            document.getElementById('view_created_at').textContent = new Date(user.created_at).toLocaleString();
+            document.getElementById('view_password_status').innerHTML = '<span class="badge bg-success">Set</span>';
+            
+            // Store user data for reset password from view
+            window.currentViewUser = user;
+            
+            new bootstrap.Modal(document.getElementById('viewUserModal')).show();
+        }
+        
+        // Reset Password from View Modal
+        function resetPasswordFromView() {
+            if (window.currentViewUser) {
+                resetPassword(window.currentViewUser.user_id, window.currentViewUser.username);
+                // Close the view modal
+                bootstrap.Modal.getInstance(document.getElementById('viewUserModal')).hide();
+            }
+        }
+        
+        // Helper function to get role badge class
+        function getRoleBadgeClass(role) {
+            switch(role) {
+                case 'admin': return 'danger';
+                case 'manager': return 'warning';
+                case 'employee': return 'info';
+                default: return 'secondary';
+            }
+        }
+        
+        // Toggle password visibility
+        function togglePassword(inputId) {
+            const passwordInput = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + '_icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
         }
     </script>
 

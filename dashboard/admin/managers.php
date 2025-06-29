@@ -20,6 +20,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $error = "Basic salary must be greater than 0.";
                         break;
                     }
+                    
+                    // Validate password length
+                    if (strlen($_POST['password']) < 6) {
+                        $error = "Password must be at least 6 characters long.";
+                        break;
+                    }
+                    
+                    // Validate first name and last name (letters only)
+                    if (!preg_match("/^[a-zA-Z\s]+$/", $_POST['first_name'])) {
+                        $error = "First name can only contain letters and spaces.";
+                        break;
+                    }
+                    
+                    if (!preg_match("/^[a-zA-Z\s]+$/", $_POST['last_name'])) {
+                        $error = "Last name can only contain letters and spaces.";
+                        break;
+                    }
+                    
                     // Begin transaction
                     $pdo->beginTransaction();
 
@@ -56,6 +74,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $error = "Basic salary must be greater than 0.";
                         break;
                     }
+                    
+                    // Validate password length if password is provided
+                    if (!empty($_POST['password']) && strlen($_POST['password']) < 6) {
+                        $error = "Password must be at least 6 characters long.";
+                        break;
+                    }
+                    
+                    // Validate first name and last name (letters only)
+                    if (!preg_match("/^[a-zA-Z\s]+$/", $_POST['first_name'])) {
+                        $error = "First name can only contain letters and spaces.";
+                        break;
+                    }
+                    
+                    if (!preg_match("/^[a-zA-Z\s]+$/", $_POST['last_name'])) {
+                        $error = "Last name can only contain letters and spaces.";
+                        break;
+                    }
+                    
                     $pdo->beginTransaction();
 
                     // Update employee information
@@ -429,11 +465,13 @@ try {
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">First Name</label>
-                                <input type="text" class="form-control" name="first_name" required>
+                                <input type="text" class="form-control" name="first_name" pattern="[A-Za-z\s]+" title="Please enter only letters and spaces" required>
+                                <small class="text-muted">Only letters and spaces allowed</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Last Name</label>
-                                <input type="text" class="form-control" name="last_name" required>
+                                <input type="text" class="form-control" name="last_name" pattern="[A-Za-z\s]+" title="Please enter only letters and spaces" required>
+                                <small class="text-muted">Only letters and spaces allowed</small>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -467,7 +505,13 @@ try {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="add_password" required minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('add_password')">
+                                    <i class="fas fa-eye" id="add_password_icon"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Password must be at least 6 characters long</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -494,11 +538,13 @@ try {
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">First Name</label>
-                                <input type="text" class="form-control" name="first_name" id="edit_first_name" required>
+                                <input type="text" class="form-control" name="first_name" id="edit_first_name" pattern="[A-Za-z\s]+" title="Please enter only letters and spaces" required>
+                                <small class="text-muted">Only letters and spaces allowed</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Last Name</label>
-                                <input type="text" class="form-control" name="last_name" id="edit_last_name" required>
+                                <input type="text" class="form-control" name="last_name" id="edit_last_name" pattern="[A-Za-z\s]+" title="Please enter only letters and spaces" required>
+                                <small class="text-muted">Only letters and spaces allowed</small>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -531,7 +577,13 @@ try {
                         </div>
                         <div class="mb-3">
                             <label class="form-label">New Password (leave blank to keep current)</label>
-                            <input type="password" class="form-control" name="password">
+                            <div class="input-group">
+                                <input type="password" class="form-control" name="password" id="edit_password" minlength="6">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('edit_password')">
+                                    <i class="fas fa-eye" id="edit_password_icon"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Password must be at least 6 characters long</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -627,6 +679,22 @@ try {
         function deleteManager(userId) {
             document.getElementById('delete_user_id').value = userId;
             new bootstrap.Modal(document.getElementById('deleteManagerModal')).show();
+        }
+        
+        // Toggle password visibility
+        function togglePassword(inputId) {
+            const passwordInput = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + '_icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
         }
     </script>
 </body>

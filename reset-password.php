@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
     if ($_POST['password'] !== $_POST['confirm_password']) {
         $error = "Passwords do not match.";
     } else {
-        $new_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-        try {
+    $new_password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    try {
             // Update password and clear reset_code
             $stmt = $pdo->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_code_expires = NULL WHERE email = ?");
             $stmt->execute([$new_password, $email]);
@@ -151,37 +151,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password']) && isset(
 </head>
 <body>
     <div class="container">
-        <div class="reset-card">
-            <div class="reset-header">
+    <div class="reset-card">
+        <div class="reset-header">
                 <h2>Reset Password</h2>
                 <p style="color: #666; margin-top: 5px; text-align:center;">Enter your new password below</p>
-            </div>
+        </div>
             <?php if ($error): ?>
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
             <?php if (!$success): ?>
             <form method="POST" id="resetForm">
-                <div class="form-group">
-                    <label for="password">New Password</label>
+            <div class="form-group">
+                <label for="password">New Password</label>
                     <div class="password-container">
-                        <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required>
                         <span class="toggle-password" onclick="togglePassword('password', this)">
                             <i class="fas fa-eye"></i>
                         </span>
                     </div>
-                </div>
-                <div class="form-group">
+            </div>
+            <div class="form-group">
                     <label for="confirm_password">Confirm New Password</label>
                     <div class="password-container">
-                        <input type="password" id="confirm_password" name="confirm_password" required>
+                <input type="password" id="confirm_password" name="confirm_password" required>
                         <span class="toggle-password" onclick="togglePassword('confirm_password', this)">
                             <i class="fas fa-eye"></i>
                         </span>
                     </div>
-                </div>
+            </div>
                 <button type="submit" class="btn-reset">Reset Password</button>
-            </form>
-            <?php endif; ?>
+        </form>
+        <?php endif; ?>
         </div>
     </div>
     <?php if ($success): ?>

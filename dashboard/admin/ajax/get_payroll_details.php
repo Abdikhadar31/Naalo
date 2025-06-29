@@ -36,10 +36,10 @@ try {
     
     if ($payroll) {
         // Format currency values
-        $payroll['basic_salary'] = '₱' . number_format($payroll['basic_salary'], 2);
-        $payroll['gross_salary'] = '₱' . number_format($payroll['gross_salary'], 2);
-        $payroll['net_salary'] = '₱' . number_format($payroll['net_salary'], 2);
-        $payroll['bonus_amount'] = '₱' . number_format($payroll['bonus_amount'], 2);
+        $payroll['basic_salary'] = '' . number_format($payroll['basic_salary'], 2);
+        $payroll['gross_salary'] = '' . number_format($payroll['gross_salary'], 2);
+        $payroll['net_salary'] = '' . number_format($payroll['net_salary'], 2);
+        $payroll['bonus_amount'] = '' . number_format($payroll['bonus_amount'], 2);
         
         echo json_encode($payroll);
     } else {

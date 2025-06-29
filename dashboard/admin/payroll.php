@@ -9,6 +9,232 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+// Export Payroll to PDF
+if (isset($_POST['export_payroll_pdf'])) {
+    try {
+        $has_fpdf = file_exists(__DIR__ . '/includes/fpdf.php');
+        if (!$has_fpdf) {
+            throw new Exception("FPDF library not found. Please download fpdf.php from http://www.fpdf.org/ and place it in the includes directory.");
+        }
+        require_once __DIR__ . '/includes/fpdf.php';
+
+        class Payroll_PDF extends FPDF
+        {
+            // Page header
+            function Header()
+            {
+                // Logo
+                if (file_exists('../../assets/images/LOGO.jpg')) {
+                    $this->Image('../../assets/images/LOGO.jpg', 10, 8, 20);
+                }
+                // Arial bold 15
+                $this->SetFont('Arial', 'B', 20);
+                $this->SetTextColor(90, 92, 105);
+                // Move to the right
+                $this->Cell(80);
+                // Title
+                $this->Cell(30, 10, 'Payroll Report', 0, 0, 'C');
+                // Report Date
+                $this->SetFont('Arial', '', 10);
+                $this->SetTextColor(133, 135, 150);
+                $this->Cell(0, 10, 'Generated on: ' . date('Y-m-d H:i:s'), 0, false, 'R');
+                // Line break
+                $this->Ln(25);
+            }
+
+            // Section Title
+            function SectionTitle($title)
+            {
+                $this->SetFont('Arial', 'B', 14);
+                $this->SetFillColor(78, 115, 223); // Primary blue
+                $this->SetTextColor(255, 255, 255);
+                $this->Cell(0, 10, "  " . $title, 0, 1, 'L', true);
+                $this->Ln(5);
+            }
+
+            // Table Header
+            function FancyHeader($header, $widths)
+            {
+                $this->SetFont('Arial', 'B', 9);
+                $this->SetFillColor(233, 238, 250); // Light blue-gray
+                $this->SetTextColor(90, 92, 105); // Dark text
+                $this->SetDrawColor(227, 230, 240);
+                $this->SetLineWidth(0.3);
+                for ($i = 0; $i < count($header); $i++) {
+                    $this->Cell($widths[$i], 7, $header[$i], 1, 0, 'C', true);
+                }
+                $this->Ln();
+            }
+
+            // Summary Section
+            function SummarySection($title, $data)
+            {
+                $this->SetFont('Arial', 'B', 12);
+                $this->SetTextColor(78, 115, 223);
+                $this->Cell(0, 8, $title, 0, 1, 'L');
+                $this->Ln(2);
+                
+                $this->SetFont('Arial', '', 10);
+                $this->SetTextColor(0);
+                foreach ($data as $key => $value) {
+                    $this->Cell(50, 6, $key . ':', 0, 0, 'L');
+                    $this->Cell(0, 6, $value, 0, 1, 'L');
+                }
+                $this->Ln(5);
+            }
+
+            // Page footer
+            function Footer()
+            {
+                // Position at 1.5 cm from bottom
+                $this->SetY(-15);
+                // Arial italic 8
+                $this->SetFont('Arial', 'I', 8);
+                $this->SetTextColor(150);
+                // Page number
+                $this->Cell(0, 10, 'Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+                // Company info
+                $this->Cell(0, 10, 'Naallo HR Management System', 0, 0, 'R');
+            }
+        }
+
+        // Get filter parameters
+        $current_month = isset($_POST['month']) ? $_POST['month'] : date('Y-m');
+        $department = isset($_POST['department']) ? $_POST['department'] : '';
+        $status = isset($_POST['status']) ? $_POST['status'] : '';
+
+        // Build query with filters
+        $query = "
+            SELECT 
+                p.payroll_id,
+                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+                d.dept_name as department,
+                pp.start_date,
+                pp.end_date,
+                p.basic_salary,
+                p.gross_salary,
+                p.net_salary,
+                p.status,
+                pa.amount as bonus_amount,
+                ap.days_present,
+                ap.days_late,
+                ap.days_absent
+            FROM payroll p
+            JOIN employees e ON p.employee_id = e.emp_id
+            JOIN departments d ON e.dept_id = d.dept_id
+            JOIN payroll_periods pp ON p.period_id = pp.period_id
+            LEFT JOIN payroll_adjustments pa ON p.payroll_id = pa.payroll_id AND pa.adjustment_type = 'bonus'
+            LEFT JOIN attendance_performance ap ON e.emp_id = ap.emp_id 
+                AND MONTH(pp.start_date) = ap.month 
+                AND YEAR(pp.start_date) = ap.year
+            WHERE 1=1
+        ";
+        
+        $params = [];
+        
+        if ($current_month) {
+            $query .= " AND DATE_FORMAT(pp.start_date, '%Y-%m') = ?";
+            $params[] = $current_month;
+        }
+        
+        if ($department) {
+            $query .= " AND e.dept_id = ?";
+            $params[] = $department;
+        }
+        
+        if ($status) {
+            $query .= " AND p.status = ?";
+            $params[] = $status;
+        }
+        
+        $query .= " ORDER BY pp.start_date DESC, e.first_name";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $payrolls = $stmt->fetchAll();
+
+        // Calculate summary statistics
+        $total_payroll = array_sum(array_column($payrolls, 'net_salary'));
+        $total_bonus = array_sum(array_map(function($p) { return $p['bonus_amount'] ?? 0; }, $payrolls));
+        $paid_count = count(array_filter($payrolls, function($p) { return $p['status'] === 'paid'; }));
+        $draft_count = count(array_filter($payrolls, function($p) { return $p['status'] === 'draft'; }));
+        $cancelled_count = count(array_filter($payrolls, function($p) { return $p['status'] === 'cancelled'; }));
+
+        // Get department name for filter
+        $dept_name = 'All Departments';
+        if ($department) {
+            $stmt = $pdo->prepare("SELECT dept_name FROM departments WHERE dept_id = ?");
+            $stmt->execute([$department]);
+            $dept_result = $stmt->fetch();
+            if ($dept_result) {
+                $dept_name = $dept_result['dept_name'];
+            }
+        }
+
+        // Create PDF
+        $pdf = new Payroll_PDF('L', 'mm', 'A4');
+        $pdf->AliasNbPages();
+        $pdf->AddPage();
+        $pdf->SetFont('Arial', '', 9);
+
+        // Summary Section
+        $pdf->SectionTitle('Payroll Summary');
+        $summary_data = [
+            'Period' => date('F Y', strtotime($current_month . '-01')),
+            'Department' => $dept_name,
+            'Status Filter' => $status ? ucfirst($status) : 'All Statuses',
+            'Total Records' => count($payrolls),
+            'Total Payroll Amount' => '$' . number_format($total_payroll, 2),
+            'Total Bonus Amount' => '$' . number_format($total_bonus, 2),
+            'Paid Records' => $paid_count,
+            'Draft Records' => $draft_count,
+            'Cancelled Records' => $cancelled_count
+        ];
+        $pdf->SummarySection('Report Summary', $summary_data);
+
+        // Payroll Details Table
+        if (!empty($payrolls)) {
+            $pdf->SectionTitle('Payroll Details');
+            $header = ['Employee', 'Department', 'Period', 'Basic Salary', 'Bonus', 'Gross Salary', 'Net Salary', 'Attendance', 'Status'];
+            $widths = [35, 25, 20, 25, 20, 25, 25, 30, 20];
+            $pdf->FancyHeader($header, $widths);
+            
+            $pdf->SetFillColor(248, 249, 252);
+            $pdf->SetTextColor(0);
+            $fill = false;
+            
+            foreach ($payrolls as $payroll) {
+                $attendance_text = $payroll['days_present'] . 'P/' . $payroll['days_late'] . 'L/' . $payroll['days_absent'] . 'A';
+                $status_text = ucfirst($payroll['status']);
+                
+                $pdf->Cell($widths[0], 6, $payroll['employee_name'], 'LR', 0, 'L', $fill);
+                $pdf->Cell($widths[1], 6, $payroll['department'], 'LR', 0, 'L', $fill);
+                $pdf->Cell($widths[2], 6, date('M Y', strtotime($payroll['start_date'])), 'LR', 0, 'C', $fill);
+                $pdf->Cell($widths[3], 6, '$' . number_format($payroll['basic_salary'], 2), 'LR', 0, 'R', $fill);
+                $pdf->Cell($widths[4], 6, '$' . number_format($payroll['bonus_amount'] ?? 0, 2), 'LR', 0, 'R', $fill);
+                $pdf->Cell($widths[5], 6, '$' . number_format($payroll['gross_salary'], 2), 'LR', 0, 'R', $fill);
+                $pdf->Cell($widths[6], 6, '$' . number_format($payroll['net_salary'], 2), 'LR', 0, 'R', $fill);
+                $pdf->Cell($widths[7], 6, $attendance_text, 'LR', 0, 'C', $fill);
+                $pdf->Cell($widths[8], 6, $status_text, 'LR', 0, 'C', $fill);
+                $pdf->Ln();
+                $fill = !$fill;
+            }
+            $pdf->Cell(array_sum($widths), 0, '', 'T');
+        } else {
+            $pdf->SetFont('Arial', 'I', 12);
+            $pdf->SetTextColor(150);
+            $pdf->Cell(0, 20, 'No payroll records found for the selected filters.', 0, 1, 'C');
+        }
+
+        $pdf->Output('D', 'Payroll_Report_' . date('Y-m-d_H-i-s') . '.pdf');
+        exit();
+    } catch (Exception $e) {
+        header('Content-Type: text/plain');
+        echo $e->getMessage();
+        exit();
+    }
+}
+
 // Initialize variables
 $success = $error = '';
 $current_month = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
@@ -609,12 +835,14 @@ try {
                         <h1 class="fw-bold mb-1" style="font-size:2rem; color:#222;">Payroll Management</h1>
                         <div class="text-muted" style="font-size:1.1rem;">Manage and process employee payroll</div>
                     </div>
-                    <button class="btn btn-primary fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(78,115,223,0.08);" data-bs-toggle="modal" data-bs-target="#payrollModal">
-                        <i class="fas fa-plus me-2"></i> CREATE PAYROLL
-                    </button>
-                    <button class="btn btn-success fw-bold px-4 py-2 d-flex align-items-center ms-2" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(40,167,69,0.08);" data-bs-toggle="modal" data-bs-target="#bulkPayrollModal">
-                        <i class="fas fa-users me-2"></i> BULK PAYROLL
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(78,115,223,0.08);" data-bs-toggle="modal" data-bs-target="#payrollModal">
+                            <i class="fas fa-plus me-2"></i> CREATE PAYROLL
+                        </button>
+                        <button class="btn btn-success fw-bold px-4 py-2 d-flex align-items-center" style="font-size:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(40,167,69,0.08);" data-bs-toggle="modal" data-bs-target="#bulkPayrollModal">
+                            <i class="fas fa-users me-2"></i> BULK PAYROLL
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -706,8 +934,9 @@ try {
                             <select class="form-select" name="status">
                                 <option value="">All Status</option>
                                 <option value="draft" <?php echo $status === 'draft' ? 'selected' : ''; ?>>Draft</option>
-                                <option value="approved" <?php echo $status === 'approved' ? 'selected' : ''; ?>>Approved</option>
+                                <!-- <option value="approved" <?php echo $status === 'approved' ? 'selected' : ''; ?>>Approved</option> -->
                                 <option value="paid" <?php echo $status === 'paid' ? 'selected' : ''; ?>>Paid</option>
+                                <option value="cancelled" <?php echo $status === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -717,6 +946,12 @@ try {
                             </button>
                         </div>
                     </form>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            The PDF export will include all records matching the current filters above.
+                        </small>
+                    </div>
                 </div>
             </div>
 
@@ -724,6 +959,15 @@ try {
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold">Payroll Records</h6>
+                    <form method="post" style="display:inline;">
+                        <input type="hidden" name="export_payroll_pdf" value="1">
+                        <input type="hidden" name="month" value="<?php echo htmlspecialchars($current_month); ?>">
+                        <input type="hidden" name="department" value="<?php echo htmlspecialchars($department); ?>">
+                        <input type="hidden" name="status" value="<?php echo htmlspecialchars($status); ?>">
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="fas fa-file-pdf me-1"></i> Export PDF
+                        </button>
+                    </form>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">

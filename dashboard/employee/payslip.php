@@ -203,6 +203,7 @@ try {
             box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
             padding: 1.5rem 1.5rem 1.5rem 1.5rem;
             margin-bottom: 2rem;
+            margin-top: 5rem;
             color: #222;
         }
 
@@ -613,6 +614,23 @@ try {
         .fancy-payslip-summary {
             background: linear-gradient(90deg, #f8fafc 0%, #e3e6f0 100%) !important;
         }
+
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            .print-area, .print-area * {
+                visibility: visible !important;
+            }
+            .print-area {
+                display: block !important;
+                position: absolute;
+                left: 0; top: 0; width: 100%;
+            }
+            .onscreen-payslip {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -731,10 +749,89 @@ try {
                 </div>
             </div>
 
-            <!-- Current Payslip -->
+            <!-- On-screen Payslip (normal view) -->
+            <div class="onscreen-payslip">
+                <?php if ($payroll): ?>
+                    <div class="payslip-wrapper">
+                        <div class="fancy-payslip p-4">
+                            <div class="fancy-payslip-header">
+                                <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                                <h4>PAYSLIP</h4>
+                                <p>For the period of <?php echo date('F Y', strtotime($payroll['start_date'])); ?></p>
+                            </div>
+                            <div class="fancy-payslip-details">
+                                <div class="detail-col">
+                                    <label>Employee Name</label>
+                                    <div class="value"><?php echo htmlspecialchars($employee_name); ?></div>
+                                    <label>Pay Period</label>
+                                    <div class="value">
+                                        <?php echo date('M d, Y', strtotime($payroll['start_date'])); ?> - 
+                                        <?php echo date('M d, Y', strtotime($payroll['end_date'])); ?>
+                                    </div>
+                                </div>
+                                <div class="detail-col">
+                                    <label>Status</label>
+                                    <div class="value">
+                                        <span class="badge bg-<?php 
+                                            echo $payroll['status'] === 'paid' ? 'success' : 
+                                                ($payroll['status'] === 'approved' ? 'info' : 'warning'); 
+                                        ?>">
+                                            <?php echo ucfirst($payroll['status']); ?>
+                                        </span>
+                                    </div>
+                                    <label>Payslip ID</label>
+                                    <div class="value">#<?php echo str_pad($payroll['payroll_id'], 6, '0', STR_PAD_LEFT); ?></div>
+                                </div>
+                            </div>
+                            <div class="fancy-payslip-summary">
+                                <h5>Salary Summary</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label>Basic Salary</label>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="value">$<?php echo number_format($payroll['basic_salary'], 2); ?></div>
+                                    </div>
+                                </div>
+                                <?php if ($payroll['bonus_amount'] > 0): ?>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label>Attendance Bonus</label>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="value">$<?php echo number_format($payroll['bonus_amount'], 2); ?></div>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="row total">
+                                    <div class="col-6">
+                                        <label>Net Salary</label>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="value">$<?php echo number_format($payroll['net_salary'], 2); ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button class="btn btn-primary" onclick="window.print()">
+                                    <i class="fas fa-print"></i> Print Payslip
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-info" style="border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No payroll records found for the selected period.
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Print-Only Payslip (manager style) -->
             <?php if ($payroll): ?>
+            <div class="print-area" style="display:none">
                 <div class="payslip-wrapper">
-                    <!-- <div class="payslip-header-print">
+                    <div class="payslip-header-print">
                         <div class="logo">
                             <?php if (file_exists($logo_path)): ?>
                                 <img src="<?php echo $logo_path; ?>" alt="Company Logo">
@@ -745,102 +842,77 @@ try {
                             <p><?php echo htmlspecialchars($company_address); ?></p>
                             <p><?php echo htmlspecialchars($company_email); ?> | <?php echo htmlspecialchars($company_phone); ?></p>
                         </div>
-                    </div> -->
-                    <div class="fancy-payslip p-4">
+                    </div>
+                    <div class="fancy-payslip">
                         <div class="fancy-payslip-header">
                             <div class="icon"><i class="fas fa-file-invoice-dollar"></i></div>
                             <h4>PAYSLIP</h4>
                             <p>For the period of <?php echo date('F Y', strtotime($payroll['start_date'])); ?></p>
                         </div>
-
                         <div class="fancy-payslip-details">
                             <div class="detail-col">
-                                <label>Employee Name</label>
+                                <label>Employee Name:</label>
                                 <div class="value"><?php echo htmlspecialchars($employee_name); ?></div>
-                                
-                                <label>Pay Period</label>
+                            </div>
+                            <div class="detail-col">
+                                <label>Status:</label>
+                                <div class="value">
+                                    <span class="badge bg-<?php 
+                                        echo $payroll['status'] === 'paid' ? 'success' : 
+                                            ($payroll['status'] === 'approved' ? 'info' : 'warning'); 
+                                    ?>">
+                                        <?php if ($payroll['status'] === 'paid'): ?><i class="fas fa-check-circle me-1"></i><?php endif; ?>
+                                        <?php if ($payroll['status'] === 'approved'): ?><i class="fas fa-info-circle me-1"></i><?php endif; ?>
+                                        <?php if ($payroll['status'] === 'draft'): ?><i class="fas fa-hourglass-half me-1"></i><?php endif; ?>
+                                        <?php if ($payroll['status'] === 'cancelled'): ?><i class="fas fa-ban me-1"></i><?php endif; ?>
+                                        <?php echo ucfirst($payroll['status']); ?>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="detail-col">
+                                <label>Pay Period:</label>
                                 <div class="value">
                                     <?php echo date('M d, Y', strtotime($payroll['start_date'])); ?> - 
                                     <?php echo date('M d, Y', strtotime($payroll['end_date'])); ?>
                                 </div>
                             </div>
-                        
-                        <div class="detail-col">
-                            <label>Status</label>
-                            <div class="value">
-                                <span class="badge bg-<?php 
-                                    echo $payroll['status'] === 'paid' ? 'success' : 
-                                        ($payroll['status'] === 'approved' ? 'info' : 'warning'); 
-                                ?>">
-                                    <?php echo ucfirst($payroll['status']); ?>
-                                </span>
-                            </div>
-                            
-                            <label>Payslip ID</label>
-                            <div class="value">#<?php echo str_pad($payroll['payroll_id'], 6, '0', STR_PAD_LEFT); ?></div>
-                        </div>
-                    </div>
-
-                    <!-- <div class="attendance-stats">
-                        <div class="stat-item present">
-                            <div class="number"><?php echo $payroll['days_present']; ?></div>
-                            <div class="label">Days Present</div>
-                        </div>
-                        <div class="stat-item late">
-                            <div class="number"><?php echo $payroll['days_late']; ?></div>
-                            <div class="label">Days Late</div>
-                        </div>
-                        <div class="stat-item half-day">
-                            <div class="number"><?php echo $payroll['days_half_day']; ?></div>
-                            <div class="label">Half Days</div>
-                        </div>
-                        <div class="stat-item absent">
-                            <div class="number"><?php echo $payroll['days_absent']; ?></div>
-                            <div class="label">Days Absent</div>
-                        </div>
-                    </div> -->
-
-                    <div class="fancy-payslip-summary">
-                        <h5>Salary Summary</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <label>Basic Salary</label>
-                            </div>
-                            <div class="col-6">
-                                <div class="value">$<?php echo number_format($payroll['basic_salary'], 2); ?></div>
+                            <div class="detail-col">
+                                <label>Payslip ID:</label>
+                                <div class="value">#<?php echo str_pad($payroll['payroll_id'], 6, '0', STR_PAD_LEFT); ?></div>
                             </div>
                         </div>
-                        <?php if ($payroll['bonus_amount'] > 0): ?>
+                        <div class="fancy-payslip-summary">
+                            <h5>Salary Summary</h5>
                             <div class="row">
                                 <div class="col-6">
-                                    <label>Attendance Bonus</label>
+                                    <label>Basic Salary:</label>
                                 </div>
                                 <div class="col-6">
-                                    <div class="value">$<?php echo number_format($payroll['bonus_amount'], 2); ?></div>
+                                    <div class="value">$<?php echo number_format($payroll['basic_salary'], 2); ?></div>
                                 </div>
                             </div>
-                        <?php endif; ?>
-                        <div class="row total">
-                            <div class="col-6">
-                                <label>Net Salary</label>
-                            </div>
-                            <div class="col-6">
-                                <div class="value">$<?php echo number_format($payroll['net_salary'], 2); ?></div>
+                            <?php if ($payroll['bonus_amount'] > 0): ?>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label>Attendance Bonus:</label>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="value">$<?php echo number_format($payroll['bonus_amount'], 2); ?></div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            <div class="row total">
+                                <div class="col-6">
+                                    <label>Net Salary:</label>
+                                </div>
+                                <div class="col-6">
+                                    <div class="value">$<?php echo number_format($payroll['net_salary'], 2); ?></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="text-center">
-                        <button class="btn btn-primary" onclick="window.print()">
-                            <i class="fas fa-print"></i> Print Payslip
-                        </button>
-                    </div>
                 </div>
-            <?php else: ?>
-                <div class="alert alert-info" style="border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);">
-                    <i class="fas fa-info-circle me-2"></i>
-                    No payroll records found for the selected period.
-                </div>
+            </div>
             <?php endif; ?>
 
             <?php if (!empty($success_message)): ?>

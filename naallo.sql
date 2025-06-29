@@ -21,7 +21,7 @@ SET time_zone = "+00:00";
 --
 
 -- --------------------------------------------------------
-
+jsdhgkjsdhgsd
 --
 -- Table structure for table `activity_logs`
 --

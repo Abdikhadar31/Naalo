@@ -75,7 +75,7 @@ try {
         unset($emp['user_id']);
         unset($emp['role']);
     }
-
+    
     echo json_encode($employees);
 } catch (PDOException $e) {
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
