@@ -42,7 +42,7 @@ if (isset($_POST['export_reports'])) {
         $stmt->execute($params);
         $filtered_employees = $stmt->fetchAll();
 
-        fputcsv($output, ['Name', 'Gender', 'Role', 'Department', 'Position', 'Email', 'Phone', 'Hire Date', 'Status']);
+        fputcsv($output, ['Name', 'Gender', 'Role', 'Department', 'Email', 'Phone', 'Hire Date', 'Status']);
         foreach ($filtered_employees as $emp) {
             $status = 'Deleted';
             if (!empty($emp['user_status']) && $emp['user_status'] === 'active') {
@@ -53,7 +53,6 @@ if (isset($_POST['export_reports'])) {
                 ucfirst($emp['gender']),
                 ucfirst($emp['role'] ?? 'N/A'),
                 $emp['dept_name'] ?? 'Not Assigned',
-                $emp['position'],
                 $emp['email'] ?? 'N/A',
                 $emp['phone'],
                 $emp['hire_date'],
@@ -235,8 +234,8 @@ if (isset($_POST['export_reports_pdf'])) {
 
         $pdf->AddPage('L', 'A4');
         $pdf->SectionTitle('Filtered Employee Report');
-        $header = ['Name', 'Gender', 'Role', 'Department', 'Position', 'Email', 'Hire Date', 'Status'];
-        $widths = [45, 15, 25, 40, 40, 55, 25, 20];
+        $header = ['Name', 'Gender', 'Role', 'Department', 'Email', 'Hire Date', 'Status'];
+        $widths = [50, 15, 25, 45, 58, 25, 20];
         $pdf->FancyHeader($header, $widths);
         $fill = false;
         foreach ($filtered_employees as $emp) {
@@ -248,10 +247,9 @@ if (isset($_POST['export_reports_pdf'])) {
             $pdf->Cell($widths[1], 6, ucfirst($emp['gender']), 'LR', 0, 'L', $fill);
             $pdf->Cell($widths[2], 6, ucfirst($emp['role'] ?? 'N/A'), 'LR', 0, 'L', $fill);
             $pdf->Cell($widths[3], 6, $emp['dept_name'] ?? 'Not Assigned', 'LR', 0, 'L', $fill);
-            $pdf->Cell($widths[4], 6, $emp['position'], 'LR', 0, 'L', $fill);
-            $pdf->Cell($widths[5], 6, $emp['email'] ?? 'N/A', 'LR', 0, 'L', $fill);
-            $pdf->Cell($widths[6], 6, $emp['hire_date'], 'LR', 0, 'C', $fill);
-            $pdf->Cell($widths[7], 6, $status, 'LR', 0, 'C', $fill);
+            $pdf->Cell($widths[4], 6, $emp['email'] ?? 'N/A', 'LR', 0, 'L', $fill);
+            $pdf->Cell($widths[5], 6, $emp['hire_date'], 'LR', 0, 'C', $fill);
+            $pdf->Cell($widths[6], 6, $status, 'LR', 0, 'C', $fill);
             $pdf->Ln();
             $fill = !$fill;
         }
@@ -617,7 +615,6 @@ try {
                                     <th>Gender</th>
                                     <th>Role</th>
                                     <th>Department</th>
-                                    <th>Position</th>
                                     <th>Email</th>
                                     <th>Phone</th>
                                     <th>Hire Date</th>
@@ -631,7 +628,6 @@ try {
                                     <td><?php echo ucfirst($emp['gender']); ?></td>
                                     <td><?php echo ucfirst(htmlspecialchars($emp['role'] ?? 'N/A')); ?></td>
                                     <td><?php echo htmlspecialchars($emp['dept_name'] ?? 'Not Assigned'); ?></td>
-                                    <td><?php echo htmlspecialchars($emp['position']); ?></td>
                                     <td><?php echo htmlspecialchars($emp['email'] ?? 'N/A'); ?></td>
                                     <td><?php echo htmlspecialchars($emp['phone']); ?></td>
                                     <td><?php echo htmlspecialchars($emp['hire_date']); ?></td>

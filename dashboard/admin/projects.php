@@ -1928,7 +1928,7 @@ try {
                     <form method="GET" class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Department</label>
-                            <select class="form-select select2" name="department">
+                            <select class="form-select" name="department">
                                 <option value="">All Departments</option>
                                 <?php foreach ($departments as $dept): ?>
                                     <option value="<?php echo $dept['dept_id']; ?>" 
@@ -1940,7 +1940,7 @@ try {
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Manager</label>
-                            <select class="form-select select2" name="manager">
+                            <select class="form-select" name="manager">
                                 <option value="">All Managers</option>
                                 <?php foreach ($managers as $manager): ?>
                                     <option value="<?php echo $manager['user_id']; ?>" 
