@@ -978,8 +978,8 @@ $holidays = [
     <div class="main-content" style="margin-left:260px; padding-top:70px; min-height:100vh; background:#f8f9fc;">
         <!-- Page Header -->
         <div class="dashboard-header" style="margin-top: 32px; background: white; padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1 class="h3 mb-0 text-black">Attendance Management</h1>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h1 class="h3 mb-0 text-black">Attendance Management</h1>
             </div>
         </div>
 
