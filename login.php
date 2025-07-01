@@ -316,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <button type="submit" class="btn-login">Login</button>
             <div class="back-link">
-                <a href="index.php">Back to Landing</a>
+                <a href="index.php">Back to Home</a>
             </div>
         </form>
     </div>
