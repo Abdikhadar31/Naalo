@@ -92,9 +92,9 @@ if (isset($_POST['export_payroll_pdf'])) {
                 $this->SetFont('Arial', 'I', 8);
                 $this->SetTextColor(150);
                 // Page number
-                $this->Cell(0, 10, 'Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+                // $this->Cell(0, 10, 'Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
                 // Company info
-                $this->Cell(0, 10, 'Naallo HR Management System', 0, 0, 'R');
+                // $this->Cell(0, 10, 'Naallo HR Management System', 0, 0, 'R');
             }
         }
 
@@ -195,8 +195,8 @@ if (isset($_POST['export_payroll_pdf'])) {
         // Payroll Details Table
         if (!empty($payrolls)) {
             $pdf->SectionTitle('Payroll Details');
-            $header = ['Employee', 'Department', 'Period', 'Basic Salary', 'Bonus', 'Gross Salary', 'Net Salary', 'Attendance', 'Status'];
-            $widths = [35, 25, 20, 25, 20, 25, 25, 30, 20];
+            $header = ['Employee', 'Department', 'Period', 'Basic Salary', 'Bonus', 'Gross Salary', 'Net Salary', 'Status'];
+            $widths = [50, 50, 20, 25, 20, 25, 25, 20];
             $pdf->FancyHeader($header, $widths);
             
             $pdf->SetFillColor(248, 249, 252);
@@ -204,7 +204,6 @@ if (isset($_POST['export_payroll_pdf'])) {
             $fill = false;
             
             foreach ($payrolls as $payroll) {
-                $attendance_text = $payroll['days_present'] . 'P/' . $payroll['days_late'] . 'L/' . $payroll['days_absent'] . 'A';
                 $status_text = ucfirst($payroll['status']);
                 
                 $pdf->Cell($widths[0], 6, $payroll['employee_name'], 'LR', 0, 'L', $fill);
@@ -214,8 +213,7 @@ if (isset($_POST['export_payroll_pdf'])) {
                 $pdf->Cell($widths[4], 6, '$' . number_format($payroll['bonus_amount'] ?? 0, 2), 'LR', 0, 'R', $fill);
                 $pdf->Cell($widths[5], 6, '$' . number_format($payroll['gross_salary'], 2), 'LR', 0, 'R', $fill);
                 $pdf->Cell($widths[6], 6, '$' . number_format($payroll['net_salary'], 2), 'LR', 0, 'R', $fill);
-                $pdf->Cell($widths[7], 6, $attendance_text, 'LR', 0, 'C', $fill);
-                $pdf->Cell($widths[8], 6, $status_text, 'LR', 0, 'C', $fill);
+                $pdf->Cell($widths[7], 6, $status_text, 'LR', 0, 'C', $fill);
                 $pdf->Ln();
                 $fill = !$fill;
             }
@@ -981,7 +979,6 @@ try {
                                     <th>Bonus</th>
                                     <th>Gross Salary</th>
                                     <th>Net Salary</th>
-                                    <th>Attendance</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -996,11 +993,6 @@ try {
                                         <td>$<?php echo number_format($payroll['bonus_amount'] ?? 0, 2); ?></td>
                                         <td>$<?php echo number_format($payroll['gross_salary'], 2); ?></td>
                                         <td>$<?php echo number_format($payroll['net_salary'], 2); ?></td>
-                                        <td>
-                                            <span class="badge bg-success"><?php echo $payroll['days_present']; ?> Present</span>
-                                            <span class="badge bg-warning"><?php echo $payroll['days_late']; ?> Late</span>
-                                            <span class="badge bg-danger"><?php echo $payroll['days_absent']; ?> Absent</span>
-                                        </td>
                                         <td>
                                             <span class="status-badge bg-<?php 
                                                 echo $payroll['status'] === 'paid' ? 'success' : 
