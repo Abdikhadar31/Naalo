@@ -222,7 +222,6 @@ function generateRandomPassword($length = 8) {
                                 <th>Email</th>
                                 <th>Role</th>
                                 <th>Status</th>
-                                <th>Password</th>
                                 <th>Created At</th>
                                 <th>Actions</th>
                             </tr>
@@ -241,12 +240,6 @@ function generateRandomPassword($length = 8) {
                                     <span class="badge bg-<?php echo $user['status'] === 'active' ? 'success' : 'danger'; ?>">
                                         <?php echo ucfirst($user['status']); ?>
                                     </span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-success">Set</span>
-                                    <button class="btn btn-sm btn-warning ms-2" onclick="resetPassword(<?php echo $user['user_id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')" title="Reset Password">
-                                        <i class="fas fa-key"></i>
-                                    </button>
                                 </td>
                                 <td><?php echo date('M d, Y H:i', strtotime($user['created_at'])); ?></td>
                                 <td>
@@ -455,13 +448,7 @@ function generateRandomPassword($length = 8) {
                         <div class="col-md-6">
                             <p><strong>Status:</strong> <span id="view_status"></span></p>
                             <p><strong>Created At:</strong> <span id="view_created_at"></span></p>
-                            <p><strong>Password:</strong> <span id="view_password_status"></span></p>
                         </div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="btn btn-warning" onclick="resetPasswordFromView()">
-                            <i class="fas fa-key me-2"></i>Reset Password
-                        </button>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -526,7 +513,6 @@ function generateRandomPassword($length = 8) {
             document.getElementById('view_role').innerHTML = '<span class="badge bg-' + getRoleBadgeClass(user.role) + '">' + user.role.charAt(0).toUpperCase() + user.role.slice(1) + '</span>';
             document.getElementById('view_status').innerHTML = '<span class="badge bg-' + (user.status === 'active' ? 'success' : 'danger') + '">' + user.status.charAt(0).toUpperCase() + user.status.slice(1) + '</span>';
             document.getElementById('view_created_at').textContent = new Date(user.created_at).toLocaleString();
-            document.getElementById('view_password_status').innerHTML = '<span class="badge bg-success">Set</span>';
             
             // Store user data for reset password from view
             window.currentViewUser = user;

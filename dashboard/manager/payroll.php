@@ -575,7 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                 </div>
                             </div>
-                            <div class="text-center pb-4">
+                            <div class="text-center">
                                 <button class="btn btn-primary" onclick="window.print()">
                                     <i class="fas fa-print"></i> Print Payslip
                                 </button>
